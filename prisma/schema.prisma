@@ -1,0 +1,88 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String?   @unique
+  name          String?
+  image         String?
+  emailVerified DateTime?
+  githubId      String?   @unique
+  githubToken   String?
+  createdAt     DateTime  @default(now())
+  projects      Project[]
+  accounts      Account[]
+  sessions      Session[]
+}
+
+model Project {
+  id              String       @id @default(cuid())
+  name            String
+  slug            String       @unique
+  repoFullName    String
+  repoBranch      String       @default("main")
+  buildCommand    String?
+  outputDir       String?
+  framework       String?
+  vercelProjectId String?
+  vercelUrl       String?
+  customDomain    String?
+  userId          String
+  user            User         @relation(fields: [userId], references: [id])
+  deployments     Deployment[]
+  envVars         EnvVar[]
+
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+}
+
+model Deployment {
+  id              String    @id @default(cuid())
+  vercelDeployId  String?   @unique
+  status          String
+  commitSha       String?
+  commitMessage   String?
+  url             String?
+  errorMessage    String?
+  projectId       String
+  project         Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  triggeredAt     DateTime  @default(now())
+  completedAt     DateTime?
+}
+
+model EnvVar {
+  id        String  @id @default(cuid())
+  key       String
+  value     String
+  target    String  @default("production")
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  scope             String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
