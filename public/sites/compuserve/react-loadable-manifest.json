@@ -1,0 +1,28 @@
+{
+  "../node_modules/@sanity/client/dist/index.browser.js -> ./_chunks-es/stegaEncodeSourceMap.js": {
+    "id": 3139,
+    "files": [
+      "static/chunks/139.5f5e60125c0ff963.js"
+    ]
+  },
+  "../node_modules/@sanity/client/dist/index.browser.js -> @sanity/eventsource": {
+    "id": 6247,
+    "files": [
+      "static/chunks/247.1a622580f14fda2b.js"
+    ]
+  },
+  "components/ui/Hero.tsx -> ./VantaNetBackground": {
+    "id": 2798,
+    "files": [
+      "static/chunks/b536a0f1.1d175d83899f9731.js",
+      "static/chunks/bd904a5c.8520f70161c51b45.js",
+      "static/chunks/798.48ca0d2d7cfbf4c6.js"
+    ]
+  },
+  "components/ui/VantaNetBackground.tsx -> vanta/dist/vanta.net.min": {
+    "id": 1776,
+    "files": [
+      "static/chunks/776.d16c24ffd777b711.js"
+    ]
+  }
+}
