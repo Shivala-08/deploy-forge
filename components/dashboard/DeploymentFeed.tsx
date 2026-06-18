@@ -30,16 +30,18 @@ export function DeploymentFeed() {
   });
 
   const deployments: FeedItem[] =
-    sites
-      ?.flatMap((s) =>
-        (s.deployments || []).map((d: Deployment) => ({ ...d, site: s }))
-      )
-      .sort(
-        (a, b) =>
-          new Date(b.triggeredAt).getTime() -
-          new Date(a.triggeredAt).getTime()
-      )
-      .slice(0, 20) || [];
+    Array.isArray(sites)
+      ? sites
+          .flatMap((s) =>
+            (s.deployments || []).map((d: Deployment) => ({ ...d, site: s }))
+          )
+          .sort(
+            (a, b) =>
+              new Date(b.triggeredAt).getTime() -
+              new Date(a.triggeredAt).getTime()
+          )
+          .slice(0, 20)
+      : [];
 
   return (
     <div className="h-full flex flex-col bg-[#0f0f1a] border-white/5">

@@ -7,23 +7,28 @@ import { Rocket, FolderOpen, CheckCircle, AlertTriangle } from "lucide-react";
 export function MetricsPanel() {
   const { sites } = useSites();
 
-  const totalSites = sites.length;
-  const totalDeployments =
-    sites.reduce((acc, s) => acc + (s.deployments?.length || 0), 0) || 0;
-  const readyDeployments =
-    sites.reduce(
-      (acc, s) =>
-        acc +
-        (s.deployments?.filter((d) => d.status === "READY").length || 0),
-      0
-    ) || 0;
-  const errorDeployments =
-    sites.reduce(
-      (acc, s) =>
-        acc +
-        (s.deployments?.filter((d) => d.status === "ERROR").length || 0),
-      0
-    ) || 0;
+  const isSitesArray = Array.isArray(sites);
+
+  const totalSites = isSitesArray ? sites.length : 0;
+  const totalDeployments = isSitesArray
+    ? sites.reduce((acc, s) => acc + (s.deployments?.length || 0), 0)
+    : 0;
+  const readyDeployments = isSitesArray
+    ? sites.reduce(
+        (acc, s) =>
+          acc +
+          (s.deployments?.filter((d) => d.status === "READY").length || 0),
+        0
+      )
+    : 0;
+  const errorDeployments = isSitesArray
+    ? sites.reduce(
+        (acc, s) =>
+          acc +
+          (s.deployments?.filter((d) => d.status === "ERROR").length || 0),
+        0
+      )
+    : 0;
 
   const metrics = [
     {
