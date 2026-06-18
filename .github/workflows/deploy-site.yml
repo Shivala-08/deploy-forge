@@ -41,72 +41,7 @@ jobs:
 
       - name: Patch Next.js config for subpath hosting
         run: |
-          SITE_ID="${{ github.event.client_payload.siteId }}"
-          cd /tmp/target-site
-
-          # Only patch if this is a Next.js project
-          if [ ! -f "package.json" ] || ! grep -q '"next"' package.json; then
-            echo "Not a Next.js project, skipping patch"
-            exit 0
-          fi
-
-          echo "Detected Next.js project — patching config for basePath=/sites/${SITE_ID}"
-
-          # Write a patcher script
-          node -e "
-            const fs = require('fs');
-            const path = require('path');
-            const siteId = '${SITE_ID}';
-            const basePath = '/sites/' + siteId;
-
-            // Find next.config file
-            const candidates = ['next.config.ts', 'next.config.mjs', 'next.config.js'];
-            let configFile = null;
-            for (const c of candidates) {
-              if (fs.existsSync(c)) { configFile = c; break; }
-            }
-
-            if (!configFile) {
-              // Create a fresh next.config.js
-              const content = \`/** @type {import('next').NextConfig} */
-          const nextConfig = {
-            output: 'export',
-            basePath: '\${basePath}',
-            assetPrefix: '\${basePath}',
-            images: { unoptimized: true },
-            trailingSlash: true,
-          };
-          module.exports = nextConfig;
-          \`;
-              fs.writeFileSync('next.config.js', content, 'utf8');
-              console.log('Created fresh next.config.js');
-              process.exit(0);
-            }
-
-            let src = fs.readFileSync(configFile, 'utf8');
-            console.log('Original config:', src.substring(0, 200));
-
-            // Remove any existing output/basePath/assetPrefix/trailingSlash settings
-            src = src.replace(/output\s*:\s*['\"]\w+['\"],?\s*\n?/g, '');
-            src = src.replace(/basePath\s*:\s*['\""][^'\"]*['\"],?\s*\n?/g, '');
-            src = src.replace(/assetPrefix\s*:\s*['\""][^'\"]*['\"],?\s*\n?/g, '');
-            src = src.replace(/trailingSlash\s*:\s*(true|false),?\s*\n?/g, '');
-
-            // Inject our settings — find the last opening brace of the config object
-            const injection = \`
-            output: 'export',
-            basePath: '\${basePath}',
-            assetPrefix: '\${basePath}',
-            trailingSlash: true,
-            images: { unoptimized: true },\`;
-
-            // Insert after the first { in the config object
-            src = src.replace(/(nextConfig\s*=\s*\{|const\s+config\s*=\s*\{|module\.exports\s*=\s*\{)/, (m) => m + injection);
-
-            fs.writeFileSync(configFile, src, 'utf8');
-            console.log('Patched', configFile);
-            console.log('New content:', src.substring(0, 400));
-          "
+          node scripts/patch-nextconfig.js /tmp/target-site "${{ github.event.client_payload.siteId }}"
 
       - name: Build site
         run: |
@@ -141,13 +76,13 @@ jobs:
           done
 
           if [ -z "${RESOLVED_DIR}" ]; then
-            echo "❌ ERROR: Could not find build output. Tried: ${OUTPUT_DIR}, out, dist, build, .next"
+            echo "ERROR: Could not find build output. Tried: ${OUTPUT_DIR}, out, dist, build, .next"
             echo "Contents of /tmp/target-site/:"
             ls /tmp/target-site/
             exit 1
           fi
 
-          echo "✅ Using output directory: ${RESOLVED_DIR}"
+          echo "Using output directory: ${RESOLVED_DIR}"
 
           # Clean old deployment
           rm -rf "public/sites/${SITE_ID}"
@@ -159,56 +94,17 @@ jobs:
           echo "Files deployed:"
           ls "public/sites/${SITE_ID}/"
 
-      - name: Rewrite asset paths in HTML and JS files
+      - name: Rewrite asset paths for subpath hosting
         run: |
-          SITE_ID="${{ github.event.client_payload.siteId }}"
-          node << 'EOF'
-            const fs = require("fs");
-            const path = require("path");
-            const siteId = process.env.SITE_ID;
-            const basePath = `/sites/${siteId}`;
-            const dir = path.join("public", "sites", siteId);
-
-            function walk(currentDir) {
-              if (!fs.existsSync(currentDir)) return;
-              const files = fs.readdirSync(currentDir);
-              for (const file of files) {
-                const filePath = path.join(currentDir, file);
-                const stat = fs.statSync(filePath);
-                if (stat.isDirectory()) {
-                  walk(filePath);
-                } else if (file.endsWith(".html")) {
-                  let content = fs.readFileSync(filePath, "utf8");
-                  // Fix absolute paths in href/src/action attributes
-                  content = content.replace(/(href|src|action)="\/(?!\/|sites\/|http)([^"]*)"/g, (match, attr, pathVal) => {
-                    return `${attr}="${basePath}/${pathVal}"`;
-                  });
-                  fs.writeFileSync(filePath, content, "utf8");
-                } else if (file.endsWith(".js") && filePath.includes("/_next/")) {
-                  // Fix hardcoded absolute paths in Next.js chunk files
-                  let content = fs.readFileSync(filePath, "utf8");
-                  // Replace "/_next/ with "/sites/SITEID/_next/
-                  content = content.replace(/"\/(_next\/)/g, `"${basePath}/$1`);
-                  // Replace hardcoded \/_next paths in template literals or concatenations
-                  content = content.replace(/"\/_next\//g, `"${basePath}/_next/`);
-                  fs.writeFileSync(filePath, content, "utf8");
-                }
-              }
-            }
-
-            walk(dir);
-            console.log("✅ Asset path rewriting complete for", siteId);
-        EOF
-        env:
-          SITE_ID: ${{ github.event.client_payload.siteId }}
+          node scripts/rewrite-paths.js "public/sites/${{ github.event.client_payload.siteId }}" "${{ github.event.client_payload.siteId }}"
 
       - name: Commit and push to trigger Vercel redeploy
         run: |
           git config user.name "DeployForge Bot"
           git config user.email "bot@deployforge.app"
 
-          git add public/sites/
-          git commit -m "🚀 Deploy: ${{ github.event.client_payload.siteId }} (${{ github.event.client_payload.commitSha }})"
+          git add public/sites/ scripts/
+          git commit -m "Deploy: ${{ github.event.client_payload.siteId }} (${{ github.event.client_payload.commitSha }})"
           git push
 
       - name: Report success back to DeployForge
