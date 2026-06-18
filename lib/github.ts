@@ -32,8 +32,8 @@ export async function getRepo(token: string, repoFullName: string) {
 }
 
 // Get latest commit on a branch
-export async function getLatestCommit(repoFullName: string, branch: string) {
-  const octokit = getOctokit();
+export async function getLatestCommit(repoFullName: string, branch: string, token?: string) {
+  const octokit = getOctokit(token);
   const [owner, repo] = repoFullName.split("/");
   const { data } = await octokit.repos.getBranch({ owner, repo, branch });
   return {

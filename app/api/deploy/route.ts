@@ -11,9 +11,21 @@ export async function POST(req: Request) {
   const { siteId, repoFullName, repoBranch, buildCommand, outputDir } =
     await req.json();
 
+  if (!process.env.GITHUB_PAT || !process.env.DEPLOYFORGE_REPO_OWNER || !process.env.DEPLOYFORGE_REPO_NAME) {
+    return NextResponse.json(
+      { error: "Monorepo host configuration is incomplete. Please ensure GITHUB_PAT, DEPLOYFORGE_REPO_OWNER, and DEPLOYFORGE_REPO_NAME are set in your environment variables (.env file)." },
+      { status: 500 }
+    );
+  }
+
   try {
+    const account = await prisma.account.findFirst({
+      where: { userId: session.user.id, provider: "github" },
+    });
+    const userToken = account?.access_token || undefined;
+
     // 1. Get latest commit info from the target repo
-    const commitInfo = await getLatestCommit(repoFullName, repoBranch || "main");
+    const commitInfo = await getLatestCommit(repoFullName, repoBranch || "main", userToken);
 
     // 2. Create a deployment record in DB
     const deployment = await prisma.deployment.create({

@@ -24,10 +24,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
-  const { name, repoFullName, repoBranch, framework, buildCommand, outputDir } =
+  const { name, siteId: customSiteId, repoFullName, repoBranch, framework, buildCommand, outputDir } =
     body;
 
-  const siteId = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+  const rawSiteId = customSiteId || name;
+  const siteId = rawSiteId.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 
   try {
     // Check if siteId is unique
@@ -35,6 +36,20 @@ export async function POST(req: Request) {
       where: { siteId },
     });
     if (existing) {
+      if (existing.userId === session.user.id && existing.repoFullName === repoFullName) {
+        const updated = await prisma.site.update({
+          where: { id: existing.id },
+          data: {
+            name,
+            repoBranch: repoBranch || "main",
+            framework,
+            buildCommand: buildCommand || "npm run build",
+            outputDir: outputDir || "dist",
+          },
+        });
+        return NextResponse.json(updated, { status: 200 });
+      }
+
       return NextResponse.json(
         { error: `Site ID '${siteId}' is already taken. Please choose another project name.` },
         { status: 400 }

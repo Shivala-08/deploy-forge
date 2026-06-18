@@ -83,6 +83,7 @@ export function DeployWizard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: projectName || selectedRepo.name,
+          siteId,
           repoFullName: selectedRepo.full_name,
           repoBranch: branch,
           framework,
