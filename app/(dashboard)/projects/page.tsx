@@ -30,6 +30,13 @@ export default function ProjectsPage() {
             />
           ))}
         </div>
+      ) : !Array.isArray(sites) ? (
+        <div className="p-6 rounded-xl border border-red-500/20 bg-red-950/10 text-sm text-red-400">
+          <p className="font-semibold">Failed to load sites</p>
+          <p className="mt-1 text-xs text-red-400/80">
+            {(sites as any)?.error || "An unexpected database or authorization error occurred."}
+          </p>
+        </div>
       ) : sites.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center rounded-xl border border-white/5 bg-[#0f0f1a]">
           <div className="h-16 w-16 rounded-2xl bg-white/5 flex items-center justify-center mb-4">

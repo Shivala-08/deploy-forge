@@ -12,12 +12,16 @@ import { Plus, FolderOpen } from "lucide-react";
 export default function DashboardPage() {
   const { sites, isLoading } = useSites();
 
+  const isSitesArray = Array.isArray(sites);
+
   // Format sites for MeshMap
-  const meshSites = sites.map((s) => ({
-    siteId: s.siteId,
-    name: s.name,
-    status: s.deployments?.[0]?.status ?? "NEVER_DEPLOYED",
-  }));
+  const meshSites = isSitesArray
+    ? sites.map((s) => ({
+        siteId: s.siteId,
+        name: s.name,
+        status: s.deployments?.[0]?.status ?? "NEVER_DEPLOYED",
+      }))
+    : [];
 
   return (
     <div className="h-full flex flex-col gap-6">
@@ -55,6 +59,13 @@ export default function DashboardPage() {
                   className="h-40 rounded-xl border border-white/5 bg-[#0f0f1a] animate-pulse"
                 />
               ))}
+            </div>
+          ) : !isSitesArray ? (
+            <div className="p-6 rounded-xl border border-red-500/20 bg-red-950/10 text-sm text-red-400">
+              <p className="font-semibold">Failed to load sites</p>
+              <p className="mt-1 text-xs text-red-400/80">
+                {(sites as any)?.error || "An unexpected database or authorization error occurred."}
+              </p>
             </div>
           ) : sites.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center rounded-xl border border-white/5 bg-[#0f0f1a]">
