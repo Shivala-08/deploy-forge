@@ -23,14 +23,14 @@ export async function GET() {
       per_page: 5,
     });
 
-    const failedRun = runsData.workflow_runs.find(r => r.conclusion === "failure");
-    let logs = "No failed runs found";
+    const latestRun = runsData.workflow_runs[0];
+    let logs = "No runs found";
     
-    if (failedRun) {
+    if (latestRun) {
       const { data: jobsData } = await octokit.actions.listJobsForWorkflowRun({
         owner,
         repo,
-        run_id: failedRun.id,
+        run_id: latestRun.id,
       });
 
       const job = jobsData.jobs[0];
