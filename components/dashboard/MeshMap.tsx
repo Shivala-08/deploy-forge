@@ -56,7 +56,6 @@ function SiteNode({
         fontSize={0.12}
         color="#f1f5f9"
         anchorX="center"
-        font="/fonts/inter.woff" // fallback to default text rendering if font not loaded
       >
         {site.name}
       </Text>

@@ -5,6 +5,7 @@ import { SiteCard } from "@/components/dashboard/SiteCard";
 import { DeploymentFeed } from "@/components/dashboard/DeploymentFeed";
 import { MetricsPanel } from "@/components/dashboard/MetricsPanel";
 import { MeshMap } from "@/components/dashboard/MeshMap";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Plus, FolderOpen } from "lucide-react";
@@ -31,7 +32,9 @@ export default function DashboardPage() {
           <h2 className="text-lg font-semibold text-white">Live Node Mesh</h2>
           <div className="text-xs text-slate-500 font-mono">Star Topology Visualizer</div>
         </div>
-        <MeshMap sites={meshSites} />
+        <ErrorBoundary>
+          <MeshMap sites={meshSites} />
+        </ErrorBoundary>
       </div>
 
       {/* Metrics */}
