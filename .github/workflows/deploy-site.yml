@@ -51,12 +51,43 @@ jobs:
           SITE_ID="${{ github.event.client_payload.siteId }}"
           OUTPUT_DIR="${{ github.event.client_payload.outputDir }}"
 
+          # Auto-detect the real output directory if configured one doesn't exist
+          RESOLVED_DIR=""
+          for candidate in "${OUTPUT_DIR}" "out" "dist" "build" ".next" "."; do
+            if [ -n "${candidate}" ] && [ -d "/tmp/target-site/${candidate}" ]; then
+              # For .next, verify it has static/chunks (real built output)
+              if [ "${candidate}" = ".next" ]; then
+                if [ -d "/tmp/target-site/.next/static" ]; then
+                  RESOLVED_DIR="${candidate}"
+                  break
+                fi
+              else
+                # For other dirs, verify it has at least an index.html or _next or index.js
+                if ls /tmp/target-site/${candidate}/index.html \
+                      /tmp/target-site/${candidate}/_next \
+                      /tmp/target-site/${candidate}/index.js 2>/dev/null | head -1 | grep -q .; then
+                  RESOLVED_DIR="${candidate}"
+                  break
+                fi
+              fi
+            fi
+          done
+
+          if [ -z "${RESOLVED_DIR}" ]; then
+            echo "❌ ERROR: Could not find build output. Tried: ${OUTPUT_DIR}, out, dist, build, .next"
+            echo "Contents of /tmp/target-site/:"
+            ls /tmp/target-site/
+            exit 1
+          fi
+
+          echo "✅ Using output directory: ${RESOLVED_DIR}"
+
           # Clean old deployment
           rm -rf "public/sites/${SITE_ID}"
           mkdir -p "public/sites/${SITE_ID}"
 
           # Copy new build
-          cp -r /tmp/target-site/${OUTPUT_DIR}/. "public/sites/${SITE_ID}/"
+          cp -r /tmp/target-site/${RESOLVED_DIR}/. "public/sites/${SITE_ID}/"
 
           echo "Files deployed:"
           ls "public/sites/${SITE_ID}/"
