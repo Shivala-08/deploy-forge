@@ -1,0 +1,88 @@
+name: Deploy Site to Mesh
+
+on:
+  repository_dispatch:
+    types: [deploy-site]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout DeployForge repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.DEPLOYFORGE_PAT }}
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Clone target repo
+        run: |
+          git clone \
+            https://x-access-token:${{ secrets.DEPLOYFORGE_PAT }}@github.com/${{ github.event.client_payload.repoFullName }}.git \
+            /tmp/target-site
+
+      - name: Install dependencies
+        run: |
+          cd /tmp/target-site
+          npm install
+
+      - name: Build site
+        run: |
+          cd /tmp/target-site
+          ${{ github.event.client_payload.buildCommand }}
+        env:
+          NODE_ENV: production
+
+      - name: Copy built files into DeployForge mesh
+        run: |
+          SITE_ID="${{ github.event.client_payload.siteId }}"
+          OUTPUT_DIR="${{ github.event.client_payload.outputDir }}"
+
+          # Clean old deployment
+          rm -rf "public/sites/${SITE_ID}"
+          mkdir -p "public/sites/${SITE_ID}"
+
+          # Copy new build
+          cp -r /tmp/target-site/${OUTPUT_DIR}/. "public/sites/${SITE_ID}/"
+
+          echo "Files deployed:"
+          ls "public/sites/${SITE_ID}/"
+
+      - name: Rewrite asset paths (fix relative paths)
+        run: |
+          SITE_ID="${{ github.event.client_payload.siteId }}"
+          BASE_PATH="/sites/${SITE_ID}"
+
+          # Fix absolute paths in HTML files so assets load correctly
+          find "public/sites/${SITE_ID}" -name "*.html" -exec \
+            sed -i "s|href=\"/|href=\"${BASE_PATH}/|g; s|src=\"/|src=\"${BASE_PATH}/|g" {} \;
+
+      - name: Commit and push to trigger Vercel redeploy
+        run: |
+          git config user.name "DeployForge Bot"
+          git config user.email "bot@deployforge.app"
+
+          git add public/sites/
+          git commit -m "🚀 Deploy: ${{ github.event.client_payload.siteId }} (${{ github.event.client_payload.commitSha }})"
+          git push
+
+      - name: Report success back to DeployForge
+        run: |
+          curl -X POST "${{ github.event.client_payload.callbackUrl }}" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ github.event.client_payload.callbackToken }}" \
+            -d '{"status": "READY", "deploymentId": "${{ github.event.client_payload.deploymentId }}"}'
+
+      - name: Report failure if any step failed
+        if: failure()
+        run: |
+          curl -X POST "${{ github.event.client_payload.callbackUrl }}" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ github.event.client_payload.callbackToken }}" \
+            -d '{"status": "ERROR", "deploymentId": "${{ github.event.client_payload.deploymentId }}", "error": "Build failed"}'

@@ -4,7 +4,7 @@ import Link from "next/link";
 import useSWR from "swr";
 import { StatusBadge } from "./StatusBadge";
 import { Rocket } from "lucide-react";
-import type { Deployment, Project } from "@/types";
+import type { Deployment, Site } from "@/types";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -21,18 +21,18 @@ function timeAgo(date: string) {
 }
 
 interface FeedItem extends Deployment {
-  project?: Project;
+  site?: Site;
 }
 
 export function DeploymentFeed() {
-  const { data: projects } = useSWR<Project[]>("/api/projects", fetcher, {
+  const { data: sites } = useSWR<Site[]>("/api/projects", fetcher, {
     refreshInterval: 5000,
   });
 
   const deployments: FeedItem[] =
-    projects
-      ?.flatMap((p) =>
-        (p.deployments || []).map((d: Deployment) => ({ ...d, project: p }))
+    sites
+      ?.flatMap((s) =>
+        (s.deployments || []).map((d: Deployment) => ({ ...d, site: s }))
       )
       .sort(
         (a, b) =>
@@ -42,8 +42,8 @@ export function DeploymentFeed() {
       .slice(0, 20) || [];
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="px-4 py-3 border-b border-white/6">
+    <div className="h-full flex flex-col bg-[#0f0f1a] border-white/5">
+      <div className="px-4 py-3 border-b border-white/5">
         <h3 className="text-sm font-semibold text-slate-300">Live Feed</h3>
       </div>
 
@@ -53,7 +53,7 @@ export function DeploymentFeed() {
             No deployments yet. Push code to trigger one.
           </div>
         ) : (
-          <div className="divide-y divide-white/4">
+          <div className="divide-y divide-white/5">
             {deployments.map((d) => (
               <div
                 key={d.id}
@@ -61,7 +61,7 @@ export function DeploymentFeed() {
               >
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-xs font-medium text-slate-300 truncate">
-                    {d.project?.name || "Unknown"}
+                    {d.site?.name || "Unknown"}
                   </span>
                   <StatusBadge status={d.status as "QUEUED" | "BUILDING" | "READY" | "ERROR" | "CANCELED"} />
                 </div>
@@ -77,8 +77,8 @@ export function DeploymentFeed() {
                   <span className="text-[10px] text-slate-600">
                     {timeAgo(d.triggeredAt)}
                   </span>
-                  {d.project?.id && (
-                    <Link href={`/projects/${d.project.id}`} className="text-slate-500 hover:text-brand-glow transition-colors">
+                  {d.site?.siteId && (
+                    <Link href={`/projects/${d.site.siteId}`} className="text-slate-500 hover:text-indigo-400 transition-colors">
                       <Rocket className="h-3 w-3" />
                     </Link>
                   )}

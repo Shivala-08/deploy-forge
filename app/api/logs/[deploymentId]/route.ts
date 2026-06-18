@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getLogStreamUrl } from "@/lib/vercel";
+import { getOctokit } from "@/lib/github";
 import { NextResponse } from "next/server";
 
 export async function GET(
@@ -13,39 +13,60 @@ export async function GET(
 
   const { deploymentId } = params;
 
-  // Look up the deployment to get the Vercel deployment ID
   const deployment = await prisma.deployment.findFirst({
     where: {
       id: deploymentId,
-      project: { userId: session.user.id },
+      site: { userId: session.user.id },
     },
   });
 
   if (!deployment)
     return NextResponse.json({ error: "Deployment not found" }, { status: 404 });
 
-  if (!deployment.vercelDeployId)
-    return NextResponse.json(
-      { error: "No Vercel deployment linked" },
-      { status: 400 }
-    );
-
-  const vercelUrl = getLogStreamUrl(deployment.vercelDeployId);
-
-  const response = await fetch(vercelUrl);
-
-  if (!response.ok) {
-    return NextResponse.json(
-      { error: "Failed to fetch logs" },
-      { status: response.status }
-    );
+  if (!deployment.workflowRunId) {
+    return NextResponse.json({
+      status: deployment.status,
+      steps: [
+        { name: "Queuing deployment on GitHub...", status: "completed", conclusion: "success" }
+      ]
+    });
   }
 
-  return new NextResponse(response.body, {
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
-    },
-  });
+  try {
+    const octokit = getOctokit();
+    const owner = process.env.DEPLOYFORGE_REPO_OWNER!;
+    const repo = process.env.DEPLOYFORGE_REPO_NAME!;
+
+    const { data: jobsData } = await octokit.actions.listJobsForWorkflowRun({
+      owner,
+      repo,
+      run_id: parseInt(deployment.workflowRunId),
+    });
+
+    const job = jobsData.jobs[0];
+    if (!job) {
+      return NextResponse.json({
+        status: deployment.status,
+        steps: []
+      });
+    }
+
+    return NextResponse.json({
+      status: deployment.status,
+      steps: (job.steps || []).map((s) => ({
+        name: s.name,
+        status: s.status, // "queued", "in_progress", "completed"
+        conclusion: s.conclusion, // "success", "failure", "skipped", null
+        startedAt: s.started_at,
+        completedAt: s.completed_at,
+      })),
+      errorMessage: deployment.errorMessage
+    });
+  } catch (error) {
+    return NextResponse.json({
+      status: deployment.status,
+      steps: [],
+      error: error instanceof Error ? error.message : "Failed to fetch workflow details"
+    });
+  }
 }

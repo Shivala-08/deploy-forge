@@ -1,12 +1,12 @@
 "use client";
 
 import useSWR from "swr";
-import type { Project } from "@/types";
+import type { Site } from "@/types";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
-export function useProjects() {
-  const { data, error, isLoading, mutate } = useSWR<Project[]>(
+export function useSites() {
+  const { data, error, isLoading, mutate } = useSWR<Site[]>(
     "/api/projects",
     fetcher,
     {
@@ -16,7 +16,7 @@ export function useProjects() {
   );
 
   return {
-    projects: data ?? [],
+    sites: data ?? [],
     isLoading,
     isError: error,
     mutate,

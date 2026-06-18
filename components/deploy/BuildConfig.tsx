@@ -24,7 +24,8 @@ const FRAMEWORK_DEFAULTS: Record<string, { build: string; output: string }> = {
   nextjs: { build: "npm run build", output: ".next" },
   vite: { build: "npm run build", output: "dist" },
   react: { build: "npm run build", output: "build" },
-  static: { build: "", output: "public" },
+  astro: { build: "npm run build", output: "dist" },
+  static: { build: "", output: "." },
 };
 
 export function BuildConfig({
@@ -60,6 +61,7 @@ export function BuildConfig({
             <SelectItem value="nextjs">Next.js</SelectItem>
             <SelectItem value="vite">Vite</SelectItem>
             <SelectItem value="react">Create React App</SelectItem>
+            <SelectItem value="astro">Astro</SelectItem>
             <SelectItem value="static">Static HTML</SelectItem>
           </SelectContent>
         </Select>

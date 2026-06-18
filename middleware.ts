@@ -7,8 +7,7 @@ const { auth } = NextAuth(authConfig);
 export default auth((req) => {
   const isLoggedIn = !!req.auth;
   const isOnDashboard = req.nextUrl.pathname.startsWith("/dashboard") ||
-    req.nextUrl.pathname.startsWith("/projects") ||
-    req.nextUrl.pathname.startsWith("/domains");
+    req.nextUrl.pathname.startsWith("/projects");
   const isOnLogin = req.nextUrl.pathname === "/login";
 
   if (isOnDashboard && !isLoggedIn) {
@@ -23,5 +22,5 @@ export default auth((req) => {
 });
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/projects/:path*", "/domains/:path*", "/login"],
+  matcher: ["/dashboard/:path*", "/projects/:path*", "/login"],
 };

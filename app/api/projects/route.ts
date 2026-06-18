@@ -1,6 +1,5 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { createVercelProject } from "@/lib/vercel";
 import { NextResponse } from "next/server";
 
 export async function GET() {
@@ -8,7 +7,7 @@ export async function GET() {
   if (!session?.user?.id)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const projects = await prisma.project.findMany({
+  const sites = await prisma.site.findMany({
     where: { userId: session.user.id },
     include: {
       deployments: { orderBy: { triggeredAt: "desc" }, take: 1 },
@@ -16,7 +15,7 @@ export async function GET() {
     orderBy: { updatedAt: "desc" },
   });
 
-  return NextResponse.json(projects);
+  return NextResponse.json(sites);
 }
 
 export async function POST(req: Request) {
@@ -28,37 +27,37 @@ export async function POST(req: Request) {
   const { name, repoFullName, repoBranch, framework, buildCommand, outputDir } =
     body;
 
-  try {
-    const vercelProject = await createVercelProject(
-      name,
-      repoFullName,
-      framework
-    );
+  const siteId = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 
-    const project = await prisma.project.create({
+  try {
+    // Check if siteId is unique
+    const existing = await prisma.site.findUnique({
+      where: { siteId },
+    });
+    if (existing) {
+      return NextResponse.json(
+        { error: `Site ID '${siteId}' is already taken. Please choose another project name.` },
+        { status: 400 }
+      );
+    }
+
+    const site = await prisma.site.create({
       data: {
         name,
-        slug: name.toLowerCase().replace(/\s+/g, "-"),
+        siteId,
         repoFullName,
         repoBranch: repoBranch || "main",
         framework,
-        buildCommand,
-        outputDir,
-        vercelProjectId: vercelProject.id,
+        buildCommand: buildCommand || "npm run build",
+        outputDir: outputDir || "dist",
         userId: session.user.id,
       },
     });
 
-    return NextResponse.json(project, { status: 201 });
+    return NextResponse.json(site, { status: 201 });
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Failed to create project";
-    if (message.includes("429")) {
-      return NextResponse.json(
-        { error: "Vercel API rate limit reached. Try again in a few seconds." },
-        { status: 429 }
-      );
-    }
+      error instanceof Error ? error.message : "Failed to create site";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

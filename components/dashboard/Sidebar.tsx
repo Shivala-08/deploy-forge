@@ -6,14 +6,12 @@ import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
   FolderOpen,
-  Globe,
   Rocket,
 } from "lucide-react";
 
 const navItems = [
   { href: "/dashboard", label: "Home", icon: LayoutDashboard },
   { href: "/projects", label: "Projects", icon: FolderOpen },
-  { href: "/domains", label: "Domains", icon: Globe },
 ];
 
 export function Sidebar() {

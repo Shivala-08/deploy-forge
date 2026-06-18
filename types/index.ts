@@ -6,47 +6,35 @@ export interface User {
   githubId?: string | null;
 }
 
-export interface Project {
+export interface Site {
   id: string;
+  siteId: string;
   name: string;
-  slug: string;
   repoFullName: string;
   repoBranch: string;
   buildCommand?: string | null;
   outputDir?: string | null;
   framework?: string | null;
-  vercelProjectId?: string | null;
-  vercelUrl?: string | null;
-  customDomain?: string | null;
+  liveUrl?: string | null;
   userId: string;
-  deployments: Deployment[];
-  envVars: EnvVar[];
+  deployments?: Deployment[];
   createdAt: string;
   updatedAt: string;
 }
 
 export interface Deployment {
   id: string;
-  vercelDeployId?: string | null;
+  workflowRunId?: string | null;
   status: DeploymentStatus;
   commitSha?: string | null;
   commitMessage?: string | null;
-  url?: string | null;
   errorMessage?: string | null;
-  projectId: string;
+  siteId: string;
   triggeredAt: string;
   completedAt?: string | null;
 }
 
 export type DeploymentStatus = "QUEUED" | "BUILDING" | "READY" | "ERROR" | "CANCELED";
-
-export interface EnvVar {
-  id: string;
-  key: string;
-  value: string;
-  target: string;
-  projectId: string;
-}
 
 export interface GitHubRepo {
   id: number;
@@ -56,24 +44,6 @@ export interface GitHubRepo {
   updated_at: string;
   language: string | null;
   default_branch: string;
-}
-
-export interface VercelProject {
-  id: string;
-  name: string;
-  framework: string;
-  link?: {
-    deployHooks?: Array<{ url: string }>;
-  };
-}
-
-export interface VercelDeployment {
-  id: string;
-  url: string;
-  meta?: {
-    githubCommitSha?: string;
-    githubCommitMessage?: string;
-  };
 }
 
 export interface LogEntry {
@@ -89,7 +59,7 @@ export const STATUS_CONFIG: Record<
   QUEUED: {
     label: "Queued",
     color: "bg-slate-700 text-slate-300",
-    dot: "bg-slate-400",
+    dot: "bg-indigo-400 animate-pulse",
   },
   BUILDING: {
     label: "Building",
