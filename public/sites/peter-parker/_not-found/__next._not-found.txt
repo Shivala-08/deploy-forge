@@ -2,4 +2,4 @@
 2:I[39756,["/sites/peter-parker/_next/static/chunks/158myu8e_yme3.js"],"default"]
 3:I[37457,["/sites/peter-parker/_next/static/chunks/158myu8e_yme3.js"],"default"]
 4:[]
-0:{"rsc":["$","$1","c",{"children":[null,["$","$L2",null,{"parallelRouterKey":"children","template":["$","$L3",null,{}]}]]}],"isPartial":false,"staleTime":300,"varyParams":"$W4","buildId":"zEfQXN8Cde98rYtYGi4GW"}
+0:{"rsc":["$","$1","c",{"children":[null,["$","$L2",null,{"parallelRouterKey":"children","template":["$","$L3",null,{}]}]]}],"isPartial":false,"staleTime":300,"varyParams":"$W4","buildId":"m3ki0CoUkWpXG5KjG6w3T"}
