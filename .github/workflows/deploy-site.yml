@@ -16,6 +16,13 @@ jobs:
           token: ${{ secrets.DEPLOYFORGE_PAT }}
           fetch-depth: 0
 
+      - name: Report build start back to DeployForge
+        run: |
+          curl -X POST "${{ github.event.client_payload.callbackUrl }}" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ github.event.client_payload.callbackToken }}" \
+            -d '{"status": "BUILDING", "deploymentId": "${{ github.event.client_payload.deploymentId }}", "runId": "${{ github.run_id }}"}'
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:

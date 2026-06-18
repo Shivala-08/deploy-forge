@@ -6,7 +6,7 @@ export async function POST(req: Request) {
   if (authHeader !== `Bearer ${process.env.NEXTAUTH_SECRET}`)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { deploymentId, status, error } = await req.json();
+  const { deploymentId, status, error, runId } = await req.json();
 
   try {
     await prisma.deployment.update({
@@ -14,7 +14,8 @@ export async function POST(req: Request) {
       data: {
         status,
         errorMessage: error ?? null,
-        completedAt: new Date(),
+        ...(runId ? { workflowRunId: String(runId) } : {}),
+        ...(status === "READY" || status === "ERROR" ? { completedAt: new Date() } : {}),
       },
     });
 
