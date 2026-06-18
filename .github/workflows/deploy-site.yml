@@ -37,7 +37,7 @@ jobs:
       - name: Install dependencies
         run: |
           cd /tmp/target-site
-          npm install
+          npm install --legacy-peer-deps
 
       - name: Build site
         run: |
