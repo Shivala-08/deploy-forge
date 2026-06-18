@@ -64,11 +64,34 @@ jobs:
       - name: Rewrite asset paths (fix relative paths)
         run: |
           SITE_ID="${{ github.event.client_payload.siteId }}"
-          BASE_PATH="/sites/${SITE_ID}"
-
-          # Fix absolute paths in HTML files so assets load correctly
-          find "public/sites/${SITE_ID}" -name "*.html" -exec \
-            sed -i "s|href=\"/|href=\"${BASE_PATH}/|g; s|src=\"/|src=\"${BASE_PATH}/|g" {} \;
+          node -e '
+            const fs = require("fs");
+            const path = require("path");
+            const siteId = process.argv[1];
+            const basePath = `/sites/${siteId}`;
+            const dir = path.join("public", "sites", siteId);
+            
+            function walk(currentDir) {
+              if (!fs.existsSync(currentDir)) return;
+              const files = fs.readdirSync(currentDir);
+              for (const file of files) {
+                const filePath = path.join(currentDir, file);
+                if (fs.statSync(filePath).isDirectory()) {
+                  walk(filePath);
+                } else if (file.endsWith(".html")) {
+                  let content = fs.readFileSync(filePath, "utf8");
+                  content = content.replace(/(href|src)="\/([^"\n]*)"/g, (match, attr, pathVal) => {
+                    if (pathVal.startsWith("sites/" + siteId) || pathVal.startsWith("http") || pathVal.startsWith("//")) {
+                      return match;
+                    }
+                    return `${attr}="${basePath}/${pathVal}"`;
+                  });
+                  fs.writeFileSync(filePath, content, "utf8");
+                }
+              }
+            }
+            walk(dir);
+          ' "${SITE_ID}"
 
       - name: Commit and push to trigger Vercel redeploy
         run: |
