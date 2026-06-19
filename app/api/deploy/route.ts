@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { triggerDeployWorkflow, getLatestCommit, getOctokit } from "@/lib/github";
 import { randomBytes } from "crypto";
+import { validateBuildCommand } from "@/lib/validateBuildCommand";
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -10,6 +11,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { siteId, repoFullName, repoBranch, buildCommand, outputDir } = await req.json();
+
+  if (buildCommand && !validateBuildCommand(buildCommand)) {
+    return NextResponse.json(
+      { error: "Invalid build command. Only standard npm, yarn, pnpm, and npx build scripts are allowed." },
+      { status: 400 }
+    );
+  }
 
   if (!process.env.GITHUB_PAT || !process.env.DEPLOYFORGE_REPO_OWNER || !process.env.DEPLOYFORGE_REPO_NAME) {
     return NextResponse.json(
@@ -47,26 +55,35 @@ export async function POST(req: Request) {
       console.error("Failed to fetch previous commit SHA:", err);
     }
 
-    // Check if anything is currently BUILDING or QUEUED
-    const activeBuilds = await prisma.deployment.count({
-      where: {
-        site: { userId: session.user.id },
-        status: { in: ["BUILDING", "QUEUED"] },
-      },
-    });
+    // Wrap checking and creation in a Transaction with Postgres advisory lock
+    const { deployment, isQueued } = await prisma.$transaction(async (tx) => {
+      const isPostgres = process.env.DATABASE_URL?.startsWith("postgres") || process.env.DATABASE_URL?.startsWith("postgresql");
+      if (isPostgres) {
+        // Lock atomically to prevent concurrency check race conditions
+        await tx.$executeRawUnsafe(`SELECT pg_advisory_xact_lock(148203)`);
+      }
 
-    const isQueued = activeBuilds > 0;
+      const activeBuilds = await tx.deployment.count({
+        where: {
+          site: { userId: session.user.id },
+          status: { in: ["BUILDING", "QUEUED"] },
+        },
+      });
 
-    // 2. Create the deployment record
-    const deployment = await prisma.deployment.create({
-      data: {
-        status: isQueued ? "QUEUED" : "BUILDING",
-        commitSha: commitInfo.sha,
-        commitMessage: commitInfo.message,
-        callbackToken,
-        previousCommitSha,
-        site: { connect: { id: site.id } },
-      },
+      const queuedState = activeBuilds > 0;
+
+      const newDeployment = await tx.deployment.create({
+        data: {
+          status: queuedState ? "QUEUED" : "BUILDING",
+          commitSha: commitInfo.sha,
+          commitMessage: commitInfo.message,
+          callbackToken,
+          previousCommitSha,
+          site: { connect: { id: site.id } },
+        },
+      });
+
+      return { deployment: newDeployment, isQueued: queuedState };
     });
 
     // Update live URL on site record

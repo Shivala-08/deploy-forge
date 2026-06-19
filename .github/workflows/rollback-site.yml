@@ -26,13 +26,53 @@ jobs:
           # Restore only the site's folder from the previous commit
           git checkout ${PREV_SHA} -- public/sites/${SITE_ID}/
 
-      - name: Commit rollback
+      - name: Commit rollback (with retry)
         run: |
           git config user.name "DeployForge Bot"
           git config user.email "bot@deployforge.app"
           git add public/sites/
-          git commit -m "⏪ Rollback: ${{ github.event.client_payload.siteId }} to ${{ github.event.client_payload.previousCommitSha }}"
-          git push --force-with-lease
+          git commit -m "⏪ Rollback: ${{ github.event.client_payload.siteId }} to ${{ github.event.client_payload.previousCommitSha }}" || { echo "No changes to commit"; exit 0; }
+
+          MAX_ATTEMPTS=3
+          ATTEMPT=1
+          while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
+            echo "Push attempt $ATTEMPT of $MAX_ATTEMPTS"
+            git fetch origin main
+            git rebase origin/main
+            if git push --force-with-lease; then
+              echo "Push succeeded"
+              break
+            fi
+            if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
+              echo "::error::Git push failed after $MAX_ATTEMPTS attempts"
+              exit 1
+            fi
+            ATTEMPT=$((ATTEMPT + 1))
+            sleep $((ATTEMPT * 5))
+          done
+
+      - name: Smoke test rolled back site
+        run: |
+          CALLBACK_URL="${{ github.event.client_payload.callbackUrl }}"
+          BASE_URL=$(echo "$CALLBACK_URL" | sed -E 's|/api/.*||')
+          SITE_URL="${BASE_URL}/sites/${{ github.event.client_payload.siteId }}/"
+          MAX_WAIT=120
+          ELAPSED=0
+          
+          echo "Waiting for ${SITE_URL} to go live..."
+          while [ $ELAPSED -lt $MAX_WAIT ]; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$SITE_URL")
+            if [ "$STATUS" = "200" ]; then
+              echo "✓ Site is live (HTTP 200)"
+              exit 0
+            fi
+            echo "HTTP ${STATUS} — waiting..."
+            sleep 10
+            ELAPSED=$((ELAPSED + 10))
+          done
+          
+          echo "::error::Site did not go live within ${MAX_WAIT}s"
+          exit 1
 
       - name: Report success
         run: |

@@ -1,0 +1,19 @@
+# .github/workflows/cleanup-git-history.yml
+name: Compress git history
+on:
+  schedule:
+    - cron: "0 0 1 * *"  # First of every month
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.DEPLOYFORGE_PAT }}
+      - name: Squash public/sites history
+        run: |
+          # Aggressive garbage collect and prune to keep history light
+          echo "Git history size before: $(du -sh .git)"
+          git gc --aggressive --prune=now
+          echo "Git history size after: $(du -sh .git)"

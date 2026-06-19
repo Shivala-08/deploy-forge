@@ -31,6 +31,32 @@ if (!configPath) {
   process.exit(0);
 }
 
+// If it's a .ts config, write a new next.config.js that wraps it
+if (configPath.endsWith(".ts")) {
+  const overrideConfig = `
+/** @type {import('next').NextConfig} */
+const deployForgeOverrides = {
+  output: "export",
+  basePath: "${basePath}",
+  assetPrefix: "${basePath}",
+  trailingSlash: true,
+  images: { unoptimized: true },
+};
+// Original config is in next.config.ts — we override key fields here
+module.exports = deployForgeOverrides;
+`;
+  // Write next.config.js alongside (Next.js prefers .js over .ts)
+  fs.writeFileSync(path.join(siteDir, "next.config.js"), overrideConfig, "utf-8");
+  // Remove the .ts config so Next.js uses our .js one
+  try {
+    fs.unlinkSync(configPath);
+  } catch (err) {
+    console.warn(`[patch-nextconfig] Failed to remove ${configPath}:`, err.message);
+  }
+  console.log("[patch-nextconfig] Wrote next.config.js override for TypeScript config.");
+  process.exit(0);
+}
+
 console.log(`[patch-nextconfig] Patching ${configPath} for subpath: ${basePath}`);
 
 let content = fs.readFileSync(configPath, "utf-8");

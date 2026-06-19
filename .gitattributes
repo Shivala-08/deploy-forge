@@ -1,0 +1,2 @@
+# Use binary merge strategy for compiled site folders to avoid conflicts
+public/sites/** merge=binary

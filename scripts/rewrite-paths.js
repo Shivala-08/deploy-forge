@@ -16,6 +16,7 @@ const siteDir = path.join(process.cwd(), "public", "sites", siteId);
 // Only rewrite paths that point to real local files
 function getLocalFiles(dir, baseDir = dir) {
   const results = new Set();
+  if (dir.includes("node_modules") || dir.includes(".git")) return results;
   if (!fs.existsSync(dir)) {
     return results;
   }
@@ -43,66 +44,77 @@ function shouldRewrite(href, localFiles) {
 }
 
 function rewriteHtml(filePath, localFiles) {
-  const content = fs.readFileSync(filePath, "utf-8");
-  const $ = cheerio.load(content, { decodeEntities: false });
+  try {
+    const content = fs.readFileSync(filePath, "utf-8");
+    const $ = cheerio.load(content, { decodeEntities: false });
 
-  // Rewrite href attributes
-  $("[href]").each((_, el) => {
-    const href = $(el).attr("href");
-    if (shouldRewrite(href, localFiles)) {
-      $(el).attr("href", basePath + href);
-    }
-  });
-
-  // Rewrite src attributes
-  $("[src]").each((_, el) => {
-    const src = $(el).attr("src");
-    if (shouldRewrite(src, localFiles)) {
-      $(el).attr("src", basePath + src);
-    }
-  });
-
-  // Rewrite srcset
-  $("[srcset]").each((_, el) => {
-    const srcset = $(el).attr("srcset");
-    if (srcset) {
-      const rewritten = srcset
-        .split(",")
-        .map((part) => {
-          const [url, descriptor] = part.trim().split(/\s+/);
-          if (shouldRewrite(url, localFiles)) {
-            return descriptor ? `${basePath}${url} ${descriptor}` : `${basePath}${url}`;
-          }
-          return part.trim();
-        })
-        .join(", ");
-      $(el).attr("srcset", rewritten);
-    }
-  });
-
-  // Rewrite inline <style> url() references
-  $("style").each((_, el) => {
-    const css = $(el).html() || "";
-    const rewritten = css.replace(/url\(['"]?(\/[^'")\s]+)['"]?\)/g, (match, p1) => {
-      if (shouldRewrite(p1, localFiles)) return `url(${basePath}${p1})`;
-      return match;
+    // Rewrite href attributes
+    $("[href]").each((_, el) => {
+      const href = $(el).attr("href");
+      if (shouldRewrite(href, localFiles)) {
+        $(el).attr("href", basePath + href);
+      }
     });
-    $(el).html(rewritten);
-  });
 
-  fs.writeFileSync(filePath, $.html());
+    // Rewrite src attributes
+    $("[src]").each((_, el) => {
+      const src = $(el).attr("src");
+      if (shouldRewrite(src, localFiles)) {
+        $(el).attr("src", basePath + src);
+      }
+    });
+
+    // Rewrite srcset
+    $("[srcset]").each((_, el) => {
+      const srcset = $(el).attr("srcset");
+      if (srcset) {
+        const rewritten = srcset
+          .split(",")
+          .map((part) => {
+            const [url, descriptor] = part.trim().split(/\s+/);
+            if (shouldRewrite(url, localFiles)) {
+              return descriptor ? `${basePath}${url} ${descriptor}` : `${basePath}${url}`;
+            }
+            return part.trim();
+          })
+          .join(", ");
+        $(el).attr("srcset", rewritten);
+      }
+    });
+
+    // Rewrite inline <style> url() references
+    $("style").each((_, el) => {
+      const css = $(el).html() || "";
+      const rewritten = css.replace(/url\(['"]?(\/[^'")\s]+)['"]?\)/g, (match, p1) => {
+        if (shouldRewrite(p1, localFiles)) return `url(${basePath}${p1})`;
+        return match;
+      });
+      $(el).html(rewritten);
+    });
+
+    fs.writeFileSync(filePath, $.html());
+    console.log(`[rewrite-paths] ✓ ${filePath}`);
+  } catch (err) {
+    console.warn(`[rewrite-paths] ⚠ Skipped HTML ${filePath}: ${err.message}`);
+  }
 }
 
 function rewriteCss(filePath, localFiles) {
-  let content = fs.readFileSync(filePath, "utf-8");
-  content = content.replace(/url\(['"]?(\/[^'")\s]+)['"]?\)/g, (match, p1) => {
-    if (shouldRewrite(p1, localFiles)) return `url(${basePath}${p1})`;
-    return match;
-  });
-  fs.writeFileSync(filePath, content);
+  try {
+    let content = fs.readFileSync(filePath, "utf-8");
+    content = content.replace(/url\(['"]?(\/[^'")\s]+)['"]?\)/g, (match, p1) => {
+      if (shouldRewrite(p1, localFiles)) return `url(${basePath}${p1})`;
+      return match;
+    });
+    fs.writeFileSync(filePath, content);
+    console.log(`[rewrite-paths] ✓ ${filePath}`);
+  } catch (err) {
+    console.warn(`[rewrite-paths] ⚠ Skipped CSS ${filePath}: ${err.message}`);
+  }
 }
 
 function walkAndRewrite(dir, localFiles) {
+  if (dir.includes("node_modules") || dir.includes(".git")) return;
   if (!fs.existsSync(dir)) {
     console.error(`Directory not found: ${dir}`);
     return;
