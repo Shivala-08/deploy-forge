@@ -15,7 +15,13 @@ try {
   const rawDbUrl = process.env.DATABASE_URL || "";
   const dbUrl = rawDbUrl.trim().replace(/^["']|["']$/g, "").toLowerCase();
 
-  const isVercel = process.env.VERCEL === "1";
+  const isVercel = 
+    process.env.VERCEL === "1" || 
+    process.env.VERCEL_ENV !== undefined || 
+    process.env.NOW_BUILDER !== undefined ||
+    (process.cwd() && (process.cwd().startsWith("/vercel") || process.cwd().startsWith("/var/task"))) ||
+    (__dirname && (__dirname.startsWith("/vercel") || __dirname.startsWith("/var/task")));
+
   const isNonSqlite = dbUrl && !dbUrl.startsWith("file:") && !dbUrl.startsWith("sqlite:");
 
   if (isVercel || isNonSqlite) {
