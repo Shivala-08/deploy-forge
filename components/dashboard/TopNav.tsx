@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
-import { useSession } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
 import useSWR from "swr";
 
 function MetricsBar() {
@@ -45,15 +45,25 @@ export function TopNav() {
         </Link>
 
         {session?.user && (
-          <div className="flex items-center gap-2.5">
-            <span className="text-sm text-slate-400">{session.user.name}</span>
-            {session.user.image && (
-              <img
-                src={session.user.image}
-                alt=""
-                className="h-8 w-8 rounded-full border border-white/10"
-              />
-            )}
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2.5">
+              <span className="text-sm text-slate-400">{session.user.name}</span>
+              {session.user.image && (
+                <img
+                  src={session.user.image}
+                  alt=""
+                  className="h-8 w-8 rounded-full border border-white/10"
+                />
+              )}
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => signOut({ callbackUrl: "/login" })}
+              className="text-xs text-slate-400 hover:text-white border border-white/10 bg-white/2 hover:bg-white/5 px-2.5 h-7"
+            >
+              Sign Out
+            </Button>
           </div>
         )}
       </div>

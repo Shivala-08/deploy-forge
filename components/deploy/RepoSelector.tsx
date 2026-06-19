@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { AlertCircle } from "lucide-react";
 import type { GitHubRepo } from "@/types";
 
 interface RepoSelectorProps {
@@ -14,24 +15,31 @@ export function RepoSelector({ onSelect, selected }: RepoSelectorProps) {
   const [repos, setRepos] = useState<GitHubRepo[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    setLoading(true);
+    setError(null);
     fetch("/api/github/repos")
-      .then((r) => r.json())
-      .then((data) => {
-        if (Array.isArray(data)) {
+      .then(async (r) => {
+        const data = await r.json();
+        if (r.ok && Array.isArray(data)) {
           setRepos(data);
         } else {
-          console.error("Failed to fetch repos: data is not an array", data);
+          console.error("Failed to fetch repos:", data);
+          setError(data?.error || "Failed to load repositories.");
           setRepos([]);
         }
         setLoading(false);
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error("Failed to fetch repos:", err);
+        setError("Failed to fetch repositories. Please check your network connection.");
         setRepos([]);
         setLoading(false);
       });
   }, []);
+
 
   const filtered = repos.filter(
     (r) =>
@@ -47,6 +55,19 @@ export function RepoSelector({ onSelect, selected }: RepoSelectorProps) {
         onChange={(e) => setSearch(e.target.value)}
         className="bg-white/5"
       />
+
+      {error && (
+        <div className="p-4 rounded-lg bg-red-950/20 border border-red-500/20 text-sm text-red-400 flex gap-2">
+          <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-semibold text-white">Repository Sync Issue</p>
+            <p className="mt-0.5 text-xs text-red-400/80">{error}</p>
+            <p className="mt-2 text-xs text-slate-400 font-sans">
+              This is usually caused by database migrations or expired session tokens. Please try signing out and signing back in to refresh your GitHub permissions.
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="max-h-96 overflow-y-auto space-y-2">
         {loading ? (
