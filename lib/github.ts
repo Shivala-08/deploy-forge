@@ -10,7 +10,7 @@ export async function listUserRepos(token: string) {
   const { data } = await octokit.repos.listForAuthenticatedUser({
     sort: "updated",
     per_page: 100,
-    type: "owner",
+    type: "all",
   });
   return data.map((r) => ({
     id: r.id,

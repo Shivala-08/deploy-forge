@@ -14,7 +14,7 @@ export async function GET() {
     return NextResponse.json({ error: "No GitHub token" }, { status: 400 });
 
   const res = await fetch(
-    "https://api.github.com/user/repos?sort=updated&per_page=100&type=owner",
+    "https://api.github.com/user/repos?sort=updated&per_page=100&type=all",
     {
       headers: {
         Authorization: `Bearer ${account.access_token}`,

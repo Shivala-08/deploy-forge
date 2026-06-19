@@ -19,10 +19,18 @@ export function RepoSelector({ onSelect, selected }: RepoSelectorProps) {
     fetch("/api/github/repos")
       .then((r) => r.json())
       .then((data) => {
-        setRepos(data);
+        if (Array.isArray(data)) {
+          setRepos(data);
+        } else {
+          console.error("Failed to fetch repos: data is not an array", data);
+          setRepos([]);
+        }
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(() => {
+        setRepos([]);
+        setLoading(false);
+      });
   }, []);
 
   const filtered = repos.filter(
