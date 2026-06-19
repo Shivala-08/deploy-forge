@@ -47,6 +47,7 @@ export async function getLatestCommit(repoFullName: string, branch: string, toke
 export async function triggerDeployWorkflow(payload: {
   siteId: string;
   repoFullName: string;
+  repoBranch?: string;
   buildCommand: string;
   outputDir: string;
   commitSha: string;

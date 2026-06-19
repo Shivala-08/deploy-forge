@@ -32,6 +32,8 @@ export interface Deployment {
   siteId: string;
   triggeredAt: string;
   completedAt?: string | null;
+  previousCommitSha?: string | null;
+  meshSizeMb?: number | null;
 }
 
 export type DeploymentStatus = "QUEUED" | "BUILDING" | "READY" | "ERROR" | "CANCELED";

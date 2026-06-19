@@ -9,12 +9,15 @@ export async function GET(
 ) {
   const { siteId, slug = [] } = params;
 
-  // Build the file path
-  let filePath = slug.join("/") || "index.html";
+  // Build the file path based on the slug
+  let filePath = slug.join("/");
 
-  // If the path has no extension, try index.html
-  if (!filePath.includes(".")) {
-    filePath = `${filePath}/index.html`.replace(/^\//, "");
+  // If no slug is provided, serve the site root index.html
+  if (!filePath) {
+    filePath = "index.html";
+  } else if (!filePath.includes(".")) {
+    // For nested paths without an extension, serve the corresponding index.html
+    filePath = `${filePath}/index.html`;
   }
 
   const fullPath = join(

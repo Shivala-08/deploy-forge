@@ -1,107 +1,82 @@
-#!/usr/bin/env node
-/**
- * DeployForge: Patch Next.js config for subpath hosting
- *
- * Usage: node patch-nextconfig.js <projectDir> <siteId>
- * Example: node patch-nextconfig.js /tmp/target-site compuserve
- *
- * Injects basePath, assetPrefix, output:'export', trailingSlash, images.unoptimized
- * so the site works when served from /sites/<siteId>/
- */
-
+// scripts/patch-nextconfig.js
 const fs = require("fs");
 const path = require("path");
 
-const [, , projectDir, siteId] = process.argv;
+const siteDir = process.argv[2];
+const siteId = process.argv[3];
+const basePath = `/sites/${siteId}`;
 
-if (!projectDir || !siteId) {
-  console.error("Usage: node patch-nextconfig.js <projectDir> <siteId>");
+if (!siteDir || !siteId) {
+  console.error("Usage: node patch-nextconfig.js <siteDir> <siteId>");
   process.exit(1);
 }
 
-const basePath = `/sites/${siteId}`;
-
-// Find the next.config file
-const candidates = [
+const possibleConfigs = [
+  "next.config.js",
   "next.config.ts",
   "next.config.mjs",
-  "next.config.js",
 ];
-let configFile = null;
-for (const c of candidates) {
-  const full = path.join(projectDir, c);
+
+let configPath = null;
+for (const name of possibleConfigs) {
+  const full = path.join(siteDir, name);
   if (fs.existsSync(full)) {
-    configFile = full;
+    configPath = full;
     break;
   }
 }
 
-if (!configFile) {
-  // No config found — create a minimal one
-  const content = `/** @type {import('next').NextConfig} */
-const nextConfig = {
-  output: 'export',
-  basePath: '${basePath}',
-  assetPrefix: '${basePath}',
-  trailingSlash: true,
-  images: { unoptimized: true },
-};
-module.exports = nextConfig;
-`;
-  const newPath = path.join(projectDir, "next.config.js");
-  fs.writeFileSync(newPath, content, "utf8");
-  console.log(`✅ Created ${newPath} with basePath=${basePath}`);
+if (!configPath) {
+  console.log("[patch-nextconfig] No Next.js config found — skipping.");
   process.exit(0);
 }
 
-let src = fs.readFileSync(configFile, "utf8");
-console.log(`📄 Found ${configFile}`);
-console.log(`📝 Original (first 300 chars):\n${src.substring(0, 300)}\n`);
+console.log(`[patch-nextconfig] Patching ${configPath} for subpath: ${basePath}`);
 
-// Strip any existing conflicting settings
-src = src.replace(/\boutput\s*:\s*['"][^'"]*['"]\s*,?\s*\n?/g, "");
-src = src.replace(/\bbasePath\s*:\s*['"][^'"]*['"]\s*,?\s*\n?/g, "");
-src = src.replace(/\bassetPrefix\s*:\s*['"][^'"]*['"]\s*,?\s*\n?/g, "");
-src = src.replace(/\btrailingSlash\s*:\s*(true|false)\s*,?\s*\n?/g, "");
-// Strip existing images block if unoptimized is already set
-src = src.replace(/\bimages\s*:\s*\{\s*unoptimized\s*:\s*(true|false)\s*\}\s*,?\s*\n?/g, "");
+let content = fs.readFileSync(configPath, "utf-8");
 
-// Injection block
-const injection = `
-  output: 'export',
-  basePath: '${basePath}',
-  assetPrefix: '${basePath}',
+// Check if it's using the new config object style or the withX wrapper style
+// Strategy: inject our required fields before the closing of the config object
+
+const patch = `
+  // === DeployForge Subpath Patch ===
+  output: "export",
+  basePath: "${basePath}",
+  assetPrefix: "${basePath}",
   trailingSlash: true,
-  images: { unoptimized: true },`;
+  images: { unoptimized: true },
+  // === End DeployForge Patch ===
+`;
 
-// Match the config object opening brace — support various export styles
-// e.g.: const nextConfig = {, const config = {, module.exports = {, export default {
-const patterns = [
-  /((?:const|let|var)\s+\w+\s*(?::\s*\w[\w<>]*\s*)?\s*=\s*\{)/,
-  /(module\.exports\s*=\s*\{)/,
-  /(export\s+default\s+\{)/,
-];
-
-let patched = false;
-for (const pattern of patterns) {
-  if (pattern.test(src)) {
-    src = src.replace(pattern, (m) => m + injection);
-    patched = true;
-    break;
-  }
+// Handle: module.exports = { ... }
+if (content.includes("module.exports")) {
+  content = content.replace(
+    /module\.exports\s*=\s*\{/,
+    `module.exports = {${patch}`
+  );
 }
-
-if (!patched) {
-  // Fallback: prepend a wrapper
-  console.warn("⚠️  Could not find config object — prepending wrapper");
-  src = `/** @type {import('next').NextConfig} */
-const _deployforgeBase = ${src};
-module.exports = {
-  ..._deployforgeBase,${injection}
-};
+// Handle: export default { ... }
+else if (content.includes("export default {")) {
+  content = content.replace(
+    /export default \{/,
+    `export default {${patch}`
+  );
+}
+// Handle: const nextConfig = { ... }
+else if (content.match(/const\s+\w+\s*=\s*\{/)) {
+  content = content.replace(
+    /const\s+(\w+)\s*=\s*\{/,
+    (match) => `${match}${patch}`
+  );
+}
+else {
+  // Fallback: prepend a complete config
+  console.log("[patch-nextconfig] Could not parse config format — prepending new config.");
+  content = `
+const deployForgeConfig = {${patch}};
+module.exports = { ...require("${configPath}"), ...deployForgeConfig };
 `;
 }
 
-fs.writeFileSync(configFile, src, "utf8");
-console.log(`✅ Patched ${configFile} with basePath=${basePath}`);
-console.log(`📝 New content (first 500 chars):\n${src.substring(0, 500)}`);
+fs.writeFileSync(configPath, content);
+console.log("[patch-nextconfig] Done.");

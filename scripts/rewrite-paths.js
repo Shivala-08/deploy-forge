@@ -1,106 +1,127 @@
-#!/usr/bin/env node
-/**
- * DeployForge: Rewrite asset paths in deployed static files
- *
- * Usage: node rewrite-paths.js <deployDir> <siteId>
- * Example: node rewrite-paths.js public/sites/compuserve compuserve
- *
- * Rewrites absolute /_next/ paths in HTML and JS files to /sites/<siteId>/_next/
- */
-
+// scripts/rewrite-paths.js
 const fs = require("fs");
 const path = require("path");
+const cheerio = require("cheerio");
 
-const [, , deployDir, siteId] = process.argv;
-
-if (!deployDir || !siteId) {
-  console.error("Usage: node rewrite-paths.js <deployDir> <siteId>");
+const siteId = process.argv[2];
+if (!siteId) {
+  console.error("Usage: node rewrite-paths.js <siteId>");
   process.exit(1);
 }
 
 const basePath = `/sites/${siteId}`;
-let htmlFixed = 0;
-let jsFixed = 0;
+const siteDir = path.join(process.cwd(), "public", "sites", siteId);
 
-function walk(dir) {
+// Build a whitelist of files that actually exist in the output
+// Only rewrite paths that point to real local files
+function getLocalFiles(dir, baseDir = dir) {
+  const results = new Set();
+  if (!fs.existsSync(dir)) {
+    return results;
+  }
+  const items = fs.readdirSync(dir, { withFileTypes: true });
+  for (const item of items) {
+    const full = path.join(dir, item.name);
+    if (item.isDirectory()) {
+      getLocalFiles(full, baseDir).forEach((f) => results.add(f));
+    } else {
+      // Store as absolute path from site root e.g. "/assets/main.js"
+      results.add("/" + path.relative(baseDir, full).replace(/\\/g, "/"));
+    }
+  }
+  return results;
+}
+
+function shouldRewrite(href, localFiles) {
+  if (!href) return false;
+  if (!href.startsWith("/")) return false;       // relative path — leave alone
+  if (href.startsWith("//")) return false;       // protocol-relative CDN URL — leave alone
+  if (href.startsWith("/api/")) return false;    // API call — leave alone
+  if (href.startsWith(basePath)) return false;   // already rewritten — skip
+  // Only rewrite if the file actually exists locally
+  return localFiles.has(href) || localFiles.has(href + "/index.html");
+}
+
+function rewriteHtml(filePath, localFiles) {
+  const content = fs.readFileSync(filePath, "utf-8");
+  const $ = cheerio.load(content, { decodeEntities: false });
+
+  // Rewrite href attributes
+  $("[href]").each((_, el) => {
+    const href = $(el).attr("href");
+    if (shouldRewrite(href, localFiles)) {
+      $(el).attr("href", basePath + href);
+    }
+  });
+
+  // Rewrite src attributes
+  $("[src]").each((_, el) => {
+    const src = $(el).attr("src");
+    if (shouldRewrite(src, localFiles)) {
+      $(el).attr("src", basePath + src);
+    }
+  });
+
+  // Rewrite srcset
+  $("[srcset]").each((_, el) => {
+    const srcset = $(el).attr("srcset");
+    if (srcset) {
+      const rewritten = srcset
+        .split(",")
+        .map((part) => {
+          const [url, descriptor] = part.trim().split(/\s+/);
+          if (shouldRewrite(url, localFiles)) {
+            return descriptor ? `${basePath}${url} ${descriptor}` : `${basePath}${url}`;
+          }
+          return part.trim();
+        })
+        .join(", ");
+      $(el).attr("srcset", rewritten);
+    }
+  });
+
+  // Rewrite inline <style> url() references
+  $("style").each((_, el) => {
+    const css = $(el).html() || "";
+    const rewritten = css.replace(/url\(['"]?(\/[^'")\s]+)['"]?\)/g, (match, p1) => {
+      if (shouldRewrite(p1, localFiles)) return `url(${basePath}${p1})`;
+      return match;
+    });
+    $(el).html(rewritten);
+  });
+
+  fs.writeFileSync(filePath, $.html());
+}
+
+function rewriteCss(filePath, localFiles) {
+  let content = fs.readFileSync(filePath, "utf-8");
+  content = content.replace(/url\(['"]?(\/[^'")\s]+)['"]?\)/g, (match, p1) => {
+    if (shouldRewrite(p1, localFiles)) return `url(${basePath}${p1})`;
+    return match;
+  });
+  fs.writeFileSync(filePath, content);
+}
+
+function walkAndRewrite(dir, localFiles) {
   if (!fs.existsSync(dir)) {
     console.error(`Directory not found: ${dir}`);
-    process.exit(1);
+    return;
   }
-
-  const entries = fs.readdirSync(dir, { withFileTypes: true });
-  for (const entry of entries) {
-    const fullPath = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      walk(fullPath);
-    } else if (entry.isFile()) {
-      if (entry.name.endsWith(".html")) {
-        rewriteHtml(fullPath);
-      } else if (entry.name.endsWith(".js")) {
-        rewriteJs(fullPath);
-      } else if (entry.name.endsWith(".css")) {
-        rewriteCss(fullPath);
-      }
+  const items = fs.readdirSync(dir, { withFileTypes: true });
+  for (const item of items) {
+    const full = path.join(dir, item.name);
+    if (item.isDirectory()) {
+      walkAndRewrite(full, localFiles);
+    } else if (item.name.endsWith(".html")) {
+      rewriteHtml(full, localFiles);
+    } else if (item.name.endsWith(".css")) {
+      rewriteCss(full, localFiles);
     }
   }
 }
 
-function rewriteHtml(filePath) {
-  let content = fs.readFileSync(filePath, "utf8");
-  const original = content;
-
-  // Fix href/src/action pointing to /<path> (absolute, not protocol-relative)
-  content = content.replace(
-    /(href|src|action|content)="(\/(?![\/\s])(?!sites\/)[^"]*)"/g,
-    (match, attr, p) => `${attr}="${basePath}${p}"`
-  );
-
-  if (content !== original) {
-    fs.writeFileSync(filePath, content, "utf8");
-    htmlFixed++;
-    console.log(`  HTML patched: ${path.relative(deployDir, filePath)}`);
-  }
-}
-
-function rewriteJs(filePath) {
-  let content = fs.readFileSync(filePath, "utf8");
-  const original = content;
-
-  // Fix "/_next/ → "/sites/siteId/_next/
-  // These appear in webpack bootstrap as string literals
-  content = content.replace(/"\/(_next\/)/g, `"${basePath}/$1`);
-  content = content.replace(/'\/(_next\/)/g, `'${basePath}/$1`);
-
-  // Fix publicPath setting: e.g. e.p="/_next/" or r.p="/_next/"
-  content = content.replace(
-    /(\w\.p\s*=\s*)"\/(_next\/)"/g,
-    `$1"${basePath}/$2"`
-  );
-  content = content.replace(
-    /(\w\.p\s*=\s*)"\/"/g,
-    `$1"${basePath}/"`
-  );
-
-  if (content !== original) {
-    fs.writeFileSync(filePath, content, "utf8");
-    jsFixed++;
-    console.log(`  JS patched: ${path.relative(deployDir, filePath)}`);
-  }
-}
-
-function rewriteCss(filePath) {
-  let content = fs.readFileSync(filePath, "utf8");
-  const original = content;
-
-  // Fix url(/_next/...) in CSS
-  content = content.replace(/url\(\/(_next\/[^)]*)\)/g, `url(${basePath}/$1)`);
-
-  if (content !== original) {
-    fs.writeFileSync(filePath, content, "utf8");
-    console.log(`  CSS patched: ${path.relative(deployDir, filePath)}`);
-  }
-}
-
-console.log(`🔧 Rewriting paths in ${deployDir} for basePath=${basePath}`);
-walk(deployDir);
-console.log(`✅ Done: ${htmlFixed} HTML files, ${jsFixed} JS files patched`);
+console.log(`[rewrite-paths] Rewriting paths for site: ${siteId}`);
+const localFiles = getLocalFiles(siteDir);
+console.log(`[rewrite-paths] Found ${localFiles.size} local files`);
+walkAndRewrite(siteDir, localFiles);
+console.log(`[rewrite-paths] Done.`);

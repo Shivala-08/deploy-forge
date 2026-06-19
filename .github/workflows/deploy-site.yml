@@ -31,29 +31,53 @@ jobs:
       - name: Clone target repo
         run: |
           git clone \
+            --branch ${{ github.event.client_payload.repoBranch || 'main' }} \
             https://x-access-token:${{ secrets.DEPLOYFORGE_PAT }}@github.com/${{ github.event.client_payload.repoFullName }}.git \
             /tmp/target-site
 
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: /tmp/target-site/node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('/tmp/target-site/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
       - name: Install dependencies
+        timeout-minutes: 5
         run: |
           cd /tmp/target-site
-          npm install --legacy-peer-deps
+          npm ci --prefer-offline || npm install --legacy-peer-deps
 
-      - name: Patch Next.js config for subpath hosting
+      - name: Detect framework and patch config
         run: |
-          node scripts/patch-nextconfig.js /tmp/target-site "${{ github.event.client_payload.siteId }}"
+          SITE_DIR="/tmp/target-site"
+          SITE_ID="${{ github.event.client_payload.siteId }}"
+          
+          # Check if it's a Next.js project
+          if ls ${SITE_DIR}/next.config.* 1> /dev/null 2>&1; then
+            echo "FRAMEWORK=nextjs" >> $GITHUB_ENV
+            echo "OUTPUT_DIR=out" >> $GITHUB_ENV
+            node scripts/patch-nextconfig.js ${SITE_DIR} ${SITE_ID}
+          else
+            echo "FRAMEWORK=other" >> $GITHUB_ENV
+            echo "OUTPUT_DIR=${{ github.event.client_payload.outputDir }}" >> $GITHUB_ENV
+          fi
 
       - name: Build site
+        timeout-minutes: 8
         run: |
           cd /tmp/target-site
           ${{ github.event.client_payload.buildCommand }}
         env:
           NODE_ENV: production
+          NEXT_PUBLIC_BASE_PATH: /sites/${{ github.event.client_payload.siteId }}
 
       - name: Copy built files into DeployForge mesh
+        timeout-minutes: 2
         run: |
           SITE_ID="${{ github.event.client_payload.siteId }}"
-          OUTPUT_DIR="${{ github.event.client_payload.outputDir }}"
+          OUTPUT_DIR="${{ env.OUTPUT_DIR }}"
 
           # Auto-detect the real output directory if configured one doesn't exist
           RESOLVED_DIR=""
@@ -94,9 +118,34 @@ jobs:
           echo "Files deployed:"
           ls "public/sites/${SITE_ID}/"
 
-      - name: Rewrite asset paths for subpath hosting
+      - name: Rewrite asset paths (smart, whitelist-based)
+        run: node scripts/rewrite-paths.js ${{ github.event.client_payload.siteId }}
+
+      - name: Check mesh storage size
         run: |
-          node scripts/rewrite-paths.js "public/sites/${{ github.event.client_payload.siteId }}" "${{ github.event.client_payload.siteId }}"
+          CURRENT_SIZE=$(du -sm public/sites/ | cut -f1)
+          echo "Current mesh size: ${CURRENT_SIZE}MB"
+          
+          # Warn at 200MB
+          if [ "$CURRENT_SIZE" -gt 200 ]; then
+            echo "::warning::Mesh storage at ${CURRENT_SIZE}MB — approaching Vercel 250MB limit"
+          fi
+          
+          # Hard stop at 230MB — do not deploy
+          if [ "$CURRENT_SIZE" -gt 230 ]; then
+            echo "::error::Mesh storage at ${CURRENT_SIZE}MB — exceeds safe limit. Delete unused sites first."
+            
+            # Report error back
+            curl -X POST "${{ github.event.client_payload.callbackUrl }}" \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Bearer ${{ github.event.client_payload.callbackToken }}" \
+              -d "{\"deploymentId\": \"${{ github.event.client_payload.deploymentId }}\", \"status\": \"ERROR\", \"error\": \"Mesh storage full (${CURRENT_SIZE}MB / 230MB limit). Delete unused sites to free space.\"}"
+            
+            exit 1
+          fi
+          
+          # Export size for later steps
+          echo "MESH_SIZE=${CURRENT_SIZE}" >> $GITHUB_ENV
 
       - name: Commit and push to trigger Vercel redeploy
         run: |
@@ -105,14 +154,14 @@ jobs:
 
           git add public/sites/ scripts/
           git commit -m "Deploy: ${{ github.event.client_payload.siteId }} (${{ github.event.client_payload.commitSha }})"
-          git push
+          git push --force-with-lease
 
       - name: Report success back to DeployForge
         run: |
           curl -X POST "${{ github.event.client_payload.callbackUrl }}" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer ${{ github.event.client_payload.callbackToken }}" \
-            -d '{"status": "READY", "deploymentId": "${{ github.event.client_payload.deploymentId }}"}'
+            -d "{\"status\": \"READY\", \"deploymentId\": \"${{ github.event.client_payload.deploymentId }}\", \"meshSizeMb\": ${MESH_SIZE}}"
 
       - name: Report failure if any step failed
         if: failure()

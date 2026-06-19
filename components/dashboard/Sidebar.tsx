@@ -8,6 +8,7 @@ import {
   FolderOpen,
   Rocket,
 } from "lucide-react";
+import { StorageMeterWrapper } from "@/components/dashboard/StorageMeter";
 
 const navItems = [
   { href: "/dashboard", label: "Home", icon: LayoutDashboard },
@@ -51,7 +52,8 @@ export function Sidebar() {
         })}
       </nav>
 
-      <div className="p-4 border-t border-white/6">
+      <div className="p-4 border-t border-white/6 space-y-4">
+        <StorageMeterWrapper />
         <div className="text-xs text-slate-500 font-mono">DeployForge v1.0</div>
       </div>
     </aside>

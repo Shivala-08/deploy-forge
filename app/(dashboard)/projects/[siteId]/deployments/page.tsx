@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import useSWR from "swr";
 import { StatusBadge } from "@/components/dashboard/StatusBadge";
 import { Card } from "@/components/ui/card";
-import { Terminal, Loader2 } from "lucide-react";
+import { Terminal, Loader2, RotateCcw } from "lucide-react";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -101,7 +101,7 @@ export default function DeploymentsPage({
   params: { siteId: string };
 }) {
   const { siteId } = params;
-  const { data: site, isLoading } = useSWR(`/api/projects/${siteId}`, fetcher, {
+  const { data: site, isLoading, mutate } = useSWR(`/api/projects/${siteId}`, fetcher, {
     refreshInterval: 5000,
   });
   const [selectedDeployId, setSelectedDeployId] = useState<string | null>(null);
@@ -114,6 +114,31 @@ export default function DeploymentsPage({
       setSelectedDeployId(deployments[0].id);
     }
   }, [deployments, selectedDeployId]);
+
+  const handleRollback = async (deploymentId: string) => {
+    if (!confirm("Are you sure you want to roll back to this version?")) return;
+    try {
+      const res = await fetch("/api/deploy/rollback", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ deploymentId }),
+      });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || "Rollback failed");
+      }
+      const data = await res.json();
+      alert("Rollback initiated successfully!");
+      if (data.deployment) {
+        setSelectedDeployId(data.deployment.id);
+      }
+      mutate();
+    } catch (err: any) {
+      alert(`Error: ${err.message}`);
+    }
+  };
 
   return (
     <div>
@@ -152,12 +177,26 @@ export default function DeploymentsPage({
                     {new Date(d.triggeredAt).toLocaleString()}
                   </span>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-slate-300">
-                  {d.commitSha && (
-                    <span className="font-mono text-slate-500 font-semibold">{d.commitSha.slice(0, 7)}</span>
-                  )}
-                  {d.commitMessage && (
-                    <span className="truncate">{d.commitMessage}</span>
+                <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/5">
+                  <div className="flex items-center gap-2 text-xs text-slate-300 overflow-hidden mr-2">
+                    {d.commitSha && (
+                      <span className="font-mono text-slate-500 font-semibold">{d.commitSha.slice(0, 7)}</span>
+                    )}
+                    {d.commitMessage && (
+                      <span className="truncate">{d.commitMessage}</span>
+                    )}
+                  </div>
+                  {d.status === "READY" && d.previousCommitSha && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRollback(d.id);
+                      }}
+                      className="text-[10px] text-slate-400 hover:text-amber-400 transition-colors flex items-center gap-1 font-semibold shrink-0"
+                    >
+                      <RotateCcw size={10} />
+                      Rollback
+                    </button>
                   )}
                 </div>
               </div>

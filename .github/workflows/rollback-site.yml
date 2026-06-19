@@ -1,0 +1,50 @@
+name: Rollback Site
+
+on:
+  repository_dispatch:
+    types: [rollback-site]
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout DeployForge repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.DEPLOYFORGE_PAT }}
+          fetch-depth: 0
+
+      - name: Restore previous deployment
+        run: |
+          SITE_ID="${{ github.event.client_payload.siteId }}"
+          PREV_SHA="${{ github.event.client_payload.previousCommitSha }}"
+
+          echo "Rolling back ${SITE_ID} to ${PREV_SHA}"
+
+          # Restore only the site's folder from the previous commit
+          git checkout ${PREV_SHA} -- public/sites/${SITE_ID}/
+
+      - name: Commit rollback
+        run: |
+          git config user.name "DeployForge Bot"
+          git config user.email "bot@deployforge.app"
+          git add public/sites/
+          git commit -m "⏪ Rollback: ${{ github.event.client_payload.siteId }} to ${{ github.event.client_payload.previousCommitSha }}"
+          git push --force-with-lease
+
+      - name: Report success
+        run: |
+          curl -X POST "${{ github.event.client_payload.callbackUrl }}" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ github.event.client_payload.callbackToken }}" \
+            -d "{\"deploymentId\": \"${{ github.event.client_payload.deploymentId }}\", \"status\": \"READY\"}"
+
+      - name: Report failure
+        if: failure()
+        run: |
+          curl -X POST "${{ github.event.client_payload.callbackUrl }}" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ github.event.client_payload.callbackToken }}" \
+            -d "{\"deploymentId\": \"${{ github.event.client_payload.deploymentId }}\", \"status\": \"ERROR\", \"error\": \"Rollback failed\"}"

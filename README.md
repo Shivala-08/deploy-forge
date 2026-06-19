@@ -59,8 +59,32 @@ sequenceDiagram
 5. **Git Commit-Back**: The runner commits the new static site folder to DeployForge's main branch and pushes the changes.
 6. **Vercel Redeployment**: Because the parent project is linked to Vercel, the push triggers Vercel to automatically rebuild and redeploy the DeployForge platform. The new site's assets are instantly bundled as static resources in the new production environment.
 7. **Next.js Routing Integration**: Next.js serves the folders using a dynamic fallback route:
-   * **Location**: `app/sites/[siteId]/[[...slug]]/route.ts`
+   * **Location**: [`app/sites/[siteId]/[[...slug]]/route.ts`](file:///Users/pallav/Downloads/Deploy-forge/deployforge/app/sites/%5BsiteId%5D/%5B%5B...slug%5D%5D/route.ts)
    * **Behavior**: Serves matching assets from `public/sites/{siteId}/{slug}`. If the file has no extension or is missing, it automatically attempts to serve the directory's `index.html` file to facilitate Single Page Application (SPA) routing.
+
+---
+
+## 📁 Codebase Architecture Map
+
+To help navigate the codebase, here is a mapping of key components:
+
+### ⚙️ Monorepo Deployment Engine
+* **Deploy Request Handler**: [`app/api/deploy/route.ts`](file:///Users/pallav/Downloads/Deploy-forge/deployforge/app/api/deploy/route.ts) — API endpoint that triggers the deployment pipeline.
+* **Status Callback Handler**: [`app/api/deploy/status/route.ts`](file:///Users/pallav/Downloads/Deploy-forge/deployforge/app/api/deploy/status/route.ts) — Webhook endpoint that GitHub Actions updates with building/success/error statuses.
+* **GitHub Actions Workflow**: [`.github/workflows/deploy-site.yml`](file:///Users/pallav/Downloads/Deploy-forge/deployforge/.github/workflows/deploy-site.yml) — Builds and compiles target sites.
+* **Next.js Config Patcher**: [`scripts/patch-nextconfig.js`](file:///Users/pallav/Downloads/Deploy-forge/deployforge/scripts/patch-nextconfig.js) — Prepares Next.js projects for subpath hosting by injecting options.
+* **Asset Path Rewriter**: [`scripts/rewrite-paths.js`](file:///Users/pallav/Downloads/Deploy-forge/deployforge/scripts/rewrite-paths.js) — Dynamically updates absolute CSS, HTML, and JS links.
+* **Routing Router**: [`app/sites/[siteId]/[[...slug]]/route.ts`](file:///Users/pallav/Downloads/Deploy-forge/deployforge/app/sites/%5BsiteId%5D/%5B%5B...slug%5D%5D/route.ts) — Dynamic Next.js route that serves the static assets.
+
+### 🎨 3D & Interactive Components
+* **Antigravity Sandbox**: [`components/interactive/AntigravityPlayground.tsx`](file:///Users/pallav/Downloads/Deploy-forge/deployforge/components/interactive/AntigravityPlayground.tsx) — The Three.js physics sandbox on the home page.
+* **Star Topology Map**: [`components/dashboard/MeshMap.tsx`](file:///Users/pallav/Downloads/Deploy-forge/deployforge/components/dashboard/MeshMap.tsx) — Nodes representing active projects.
+* **Globe Deployments**: [`components/3d/GlobeDeployments.tsx`](file:///Users/pallav/Downloads/Deploy-forge/deployforge/components/3d/GlobeDeployments.tsx) — Visualizes network nodes in 3D.
+
+### 🛠️ Core Services & Helpers
+* **Framework Auto-Detector**: [`lib/detectFramework.ts`](file:///Users/pallav/Downloads/Deploy-forge/deployforge/lib/detectFramework.ts) — Auto-scans package files to configure optimal builds.
+* **AES-256 Env Encryptor**: [`lib/encryption.ts`](file:///Users/pallav/Downloads/Deploy-forge/deployforge/lib/encryption.ts) — Secures environment variables with Web Crypto APIs.
+* **Prisma Schema**: [`prisma/schema.prisma`](file:///Users/pallav/Downloads/Deploy-forge/deployforge/prisma/schema.prisma) — Database models for Users, Sites, and Deployments.
 
 ---
 
@@ -155,3 +179,4 @@ DEPLOYFORGE_REPO_NAME="deploy-forge"
    ```
 
 Open [http://localhost:3000](http://localhost:3000) to view the application.
+

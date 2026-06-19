@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -34,6 +34,10 @@ model Site {
   userId         String
   user           User         @relation(fields: [userId], references: [id])
   deployments    Deployment[]
+  queueEntries   DeployQueue[]
+  parentSiteId   String?           // enables sub-mesh topology in V2
+  parent         Site?   @relation("SiteMesh", fields: [parentSiteId], references: [id])
+  children       Site[]  @relation("SiteMesh")
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 }
@@ -49,6 +53,21 @@ model Deployment {
   site             Site      @relation(fields: [siteId], references: [id], onDelete: Cascade)
   triggeredAt      DateTime  @default(now())
   completedAt      DateTime?
+  callbackToken    String?   // unique per deployment, invalidated after use
+  previousCommitSha String?  // SHA before this deployment, enables rollback
+  meshSizeMb       Int?      // total public/sites/ size at time of deployment
+  queueEntry       DeployQueue?
+}
+
+model DeployQueue {
+  id           String   @id @default(cuid())
+  siteId       String
+  deploymentId String   @unique
+  status       String   @default("WAITING") // "WAITING" | "PROCESSING" | "DONE"
+  position     Int
+  createdAt    DateTime @default(now())
+  site         Site     @relation(fields: [siteId], references: [id])
+  deployment   Deployment @relation(fields: [deploymentId], references: [id])
 }
 
 // NextAuth
