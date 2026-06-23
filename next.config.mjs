@@ -8,36 +8,41 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Run database provider patcher and generate client before Next.js configuration is exported
-try {
-  const schemaPath = path.join(__dirname, "prisma/schema.prisma");
-  let content = fs.readFileSync(schemaPath, "utf-8");
+// Skip this during Vercel runtime (read-only filesystem) as the client is already compiled at build time.
+const isVercelRuntime = process.env.VERCEL === "1" && process.env.NEXT_PHASE !== "phase-production-build";
 
-  const rawDbUrl = process.env.DATABASE_URL || "";
-  const dbUrl = rawDbUrl.trim().replace(/^["']|["']$/g, "").toLowerCase();
+if (!isVercelRuntime) {
+  try {
+    const schemaPath = path.join(__dirname, "prisma/schema.prisma");
+    let content = fs.readFileSync(schemaPath, "utf-8");
 
-  const isVercel = 
-    process.env.VERCEL === "1" || 
-    process.env.VERCEL_ENV !== undefined || 
-    process.env.NOW_BUILDER !== undefined ||
-    (process.cwd() && (process.cwd().startsWith("/vercel") || process.cwd().startsWith("/var/task"))) ||
-    (__dirname && (__dirname.startsWith("/vercel") || __dirname.startsWith("/var/task")));
+    const rawDbUrl = process.env.DATABASE_URL || "";
+    const dbUrl = rawDbUrl.trim().replace(/^["']|["']$/g, "").toLowerCase();
 
-  const isNonSqlite = dbUrl && !dbUrl.startsWith("file:") && !dbUrl.startsWith("sqlite:");
+    const isVercel = 
+      process.env.VERCEL === "1" || 
+      process.env.VERCEL_ENV !== undefined || 
+      process.env.NOW_BUILDER !== undefined ||
+      (process.cwd() && (process.cwd().startsWith("/vercel") || process.cwd().startsWith("/var/task"))) ||
+      (__dirname && (__dirname.startsWith("/vercel") || __dirname.startsWith("/var/task")));
 
-  if (isVercel || isNonSqlite) {
-    console.log(`[next.config.mjs] Detected Postgres environment. Changing provider to postgresql.`);
-    content = content.replace(/provider\s*=\s*"sqlite"/, 'provider = "postgresql"');
-    fs.writeFileSync(schemaPath, content, "utf-8");
-  } else {
-    console.log(`[next.config.mjs] Keeping sqlite provider.`);
-    content = content.replace(/provider\s*=\s*"postgresql"/, 'provider = "sqlite"');
-    fs.writeFileSync(schemaPath, content, "utf-8");
+    const isNonSqlite = dbUrl && !dbUrl.startsWith("file:") && !dbUrl.startsWith("sqlite:");
+
+    if (isVercel || isNonSqlite) {
+      console.log(`[next.config.mjs] Detected Postgres environment. Changing provider to postgresql.`);
+      content = content.replace(/provider\s*=\s*"sqlite"/, 'provider = "postgresql"');
+      fs.writeFileSync(schemaPath, content, "utf-8");
+    } else {
+      console.log(`[next.config.mjs] Keeping sqlite provider.`);
+      content = content.replace(/provider\s*=\s*"postgresql"/, 'provider = "sqlite"');
+      fs.writeFileSync(schemaPath, content, "utf-8");
+    }
+
+    console.log("[next.config.mjs] Running prisma generate...");
+    execSync("npx prisma generate", { stdio: "inherit" });
+  } catch (e) {
+    console.error("[next.config.mjs] Error running prisma patcher / generate:", e);
   }
-
-  console.log("[next.config.mjs] Running prisma generate...");
-  execSync("npx prisma generate", { stdio: "inherit" });
-} catch (e) {
-  console.error("[next.config.mjs] Error running prisma patcher / generate:", e);
 }
 
 /** @type {import('next').NextConfig} */
