@@ -19,11 +19,12 @@ export async function GET(req: Request) {
     const account = await prisma.account.findFirst({
       where: { userId: session.user.id, provider: "github" },
     });
-    if (!account?.access_token) {
+    const token = account?.access_token || process.env.GITHUB_PAT;
+    if (!token) {
       return NextResponse.json({ error: "No GitHub token found" }, { status: 400 });
     }
 
-    const result = await detectFramework(repoFullName, account.access_token);
+    const result = await detectFramework(repoFullName, token);
     return NextResponse.json(result);
   } catch (error) {
     return NextResponse.json(

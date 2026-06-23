@@ -10,14 +10,15 @@ export async function GET() {
   const account = await prisma.account.findFirst({
     where: { userId: session.user.id, provider: "github" },
   });
-  if (!account?.access_token)
+  const token = account?.access_token || process.env.GITHUB_PAT;
+  if (!token)
     return NextResponse.json({ error: "No GitHub token" }, { status: 400 });
 
   const res = await fetch(
     "https://api.github.com/user/repos?sort=updated&per_page=100&type=all",
     {
       headers: {
-        Authorization: `Bearer ${account.access_token}`,
+        Authorization: `Bearer ${token}`,
         Accept: "application/vnd.github+json",
       },
     }
