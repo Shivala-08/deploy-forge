@@ -12,6 +12,13 @@ export async function POST(req: Request) {
 
   const { siteId, repoFullName, repoBranch, buildCommand, outputDir } = await req.json();
 
+  if (!siteId || !repoFullName) {
+    return NextResponse.json(
+      { error: "Missing required fields: siteId and repoFullName are required" },
+      { status: 400 }
+    );
+  }
+
   if (buildCommand && !validateBuildCommand(buildCommand)) {
     return NextResponse.json(
       { error: "Invalid build command. Only standard npm, yarn, pnpm, and npx build scripts are allowed." },

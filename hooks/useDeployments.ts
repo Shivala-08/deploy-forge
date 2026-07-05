@@ -10,14 +10,7 @@ export function useDeployments(projectId: string | null) {
     projectId ? `/api/projects/${projectId}/deployments` : null,
     fetcher,
     {
-      refreshInterval: (latestData) => {
-        if (!latestData) return 5000;
-        const hasActive = latestData.some(
-          (d: Deployment) =>
-            d.status === "BUILDING" || d.status === "QUEUED"
-        );
-        return hasActive ? 3000 : 30000;
-      },
+      refreshInterval: 5000,
       revalidateOnFocus: true,
     }
   );

@@ -1,5 +1,6 @@
 "use client";
 
+import { use } from "react";
 import { useState, useEffect } from "react";
 import useSWR from "swr";
 import { StatusBadge } from "@/components/dashboard/StatusBadge";
@@ -98,9 +99,9 @@ function TerminalLogs({ deploymentId }: { deploymentId: string }) {
 export default function DeploymentsPage({
   params,
 }: {
-  params: { siteId: string };
+  params: Promise<{ siteId: string }>;
 }) {
-  const { siteId } = params;
+  const { siteId } = use(params);
   const { data: site, isLoading, mutate } = useSWR(`/api/projects/${siteId}`, fetcher, {
     refreshInterval: 5000,
   });

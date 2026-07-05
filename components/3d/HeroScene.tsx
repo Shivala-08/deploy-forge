@@ -36,7 +36,7 @@ function Arc({
   color: string;
 }) {
   const progress = useRef(0);
-  const materialRef = useRef<THREE.LineBasicMaterial>();
+  const materialRef = useRef<THREE.LineBasicMaterial>(null);
 
   const curve = useMemo(() => {
     const mid: [number, number, number] = [

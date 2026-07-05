@@ -50,7 +50,7 @@ export function useLogStream(deploymentId: string | null) {
       evtSource.close();
       setIsConnected(false);
     };
-  }, [deploymentId, setLogs]);
+  }, [deploymentId]);
 
   return { logs, isConnected };
 }

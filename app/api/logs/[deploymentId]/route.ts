@@ -5,13 +5,13 @@ import { NextResponse } from "next/server";
 
 export async function GET(
   _req: Request,
-  { params }: { params: { deploymentId: string } }
+  { params }: { params: Promise<{ deploymentId: string }> }
 ) {
   const session = await auth();
   if (!session?.user?.id)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { deploymentId } = params;
+  const { deploymentId } = await params;
 
   const deployment = await prisma.deployment.findFirst({
     where: {
@@ -37,10 +37,19 @@ export async function GET(
     const owner = process.env.DEPLOYFORGE_REPO_OWNER!;
     const repo = process.env.DEPLOYFORGE_REPO_NAME!;
 
+    const runId = Number(deployment.workflowRunId);
+    if (isNaN(runId)) {
+      return NextResponse.json({
+        status: deployment.status,
+        steps: [],
+        error: "Invalid workflow run ID"
+      });
+    }
+
     const { data: jobsData } = await octokit.actions.listJobsForWorkflowRun({
       owner,
       repo,
-      run_id: parseInt(deployment.workflowRunId),
+      run_id: runId,
     });
 
     const job = jobsData.jobs[0];

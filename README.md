@@ -72,7 +72,7 @@ To help navigate the codebase, here is a mapping of key components:
 * **Deploy Request Handler**: [`app/api/deploy/route.ts`](file:///Users/pallav/Downloads/Deploy-forge/deployforge/app/api/deploy/route.ts) — API endpoint that triggers the deployment pipeline.
 * **Status Callback Handler**: [`app/api/deploy/status/route.ts`](file:///Users/pallav/Downloads/Deploy-forge/deployforge/app/api/deploy/status/route.ts) — Webhook endpoint that GitHub Actions updates with building/success/error statuses.
 * **GitHub Actions Workflow**: [`.github/workflows/deploy-site.yml`](file:///Users/pallav/Downloads/Deploy-forge/deployforge/.github/workflows/deploy-site.yml) — Builds and compiles target sites.
-* **Next.js Config Patcher**: [`scripts/patch-nextconfig.js`](file:///Users/pallav/Downloads/Deploy-forge/deployforge/scripts/patch-nextconfig.js) — Prepares Next.js projects for subpath hosting by injecting options.
+* **Next.js Config Pawtcher**: [`scripts/patch-nextconfig.js`](file:///Users/pallav/Downloads/Deploy-forge/deployforge/scripts/patch-nextconfig.js) — Prepares Next.js projects for subpath hosting by injecting options.
 * **Asset Path Rewriter**: [`scripts/rewrite-paths.js`](file:///Users/pallav/Downloads/Deploy-forge/deployforge/scripts/rewrite-paths.js) — Dynamically updates absolute CSS, HTML, and JS links.
 * **Routing Router**: [`app/sites/[siteId]/[[...slug]]/route.ts`](file:///Users/pallav/Downloads/Deploy-forge/deployforge/app/sites/%5BsiteId%5D/%5B%5B...slug%5D%5D/route.ts) — Dynamic Next.js route that serves the static assets.
 

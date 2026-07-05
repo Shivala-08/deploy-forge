@@ -335,7 +335,7 @@ export function DeployWizard() {
                   <div className="pt-3 border-t border-white/5">
                     <span className="text-slate-500 text-xs">Live URL Preview</span>
                     <p className="font-mono text-xs text-indigo-400 font-semibold mt-0.5">
-                      https://deploy-forge-4klc.vercel.app/sites/{siteId}
+                      {process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || 'http://localhost:3000'}/sites/{siteId}
                     </p>
                   </div>
                 </div>

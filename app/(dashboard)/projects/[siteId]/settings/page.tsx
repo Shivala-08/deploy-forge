@@ -1,5 +1,6 @@
 "use client";
 
+import { use } from "react";
 import { useState, useEffect } from "react";
 import useSWR from "swr";
 import { Card } from "@/components/ui/card";
@@ -11,9 +12,9 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json());
 export default function SettingsPage({
   params,
 }: {
-  params: { siteId: string };
+  params: Promise<{ siteId: string }>;
 }) {
-  const { siteId } = params;
+  const { siteId } = use(params);
   const { data: site, isLoading, mutate } = useSWR(`/api/projects/${siteId}`, fetcher);
 
   const [name, setName] = useState("");

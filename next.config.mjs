@@ -48,10 +48,8 @@ if (!isVercelRuntime) {
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   transpilePackages: ["three"],
-  experimental: {
-    outputFileTracingIncludes: {
-      '/sites/[siteId]/[[...slug]]': ['./public/sites/**/*'],
-    },
+  outputFileTracingIncludes: {
+    '/sites/[siteId]/[[...slug]]': ['./public/sites/**/*'],
   },
 };
 

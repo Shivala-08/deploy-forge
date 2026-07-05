@@ -108,7 +108,7 @@ function DeployArc({
   status: string;
 }) {
   const progress = useRef(0);
-  const materialRef = useRef<THREE.LineBasicMaterial>();
+  const materialRef = useRef<THREE.LineBasicMaterial>(null);
 
   const color = useMemo(() => {
     switch (status) {

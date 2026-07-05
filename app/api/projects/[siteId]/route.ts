@@ -4,13 +4,13 @@ import { NextResponse } from "next/server";
 
 export async function GET(
   _req: Request,
-  { params }: { params: { siteId: string } }
+  { params }: { params: Promise<{ siteId: string }> }
 ) {
   const session = await auth();
   if (!session?.user?.id)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { siteId } = params;
+  const { siteId } = await params;
 
   const site = await prisma.site.findFirst({
     where: { siteId, userId: session.user.id },
@@ -25,13 +25,13 @@ export async function GET(
 
 export async function DELETE(
   _req: Request,
-  { params }: { params: { siteId: string } }
+  { params }: { params: Promise<{ siteId: string }> }
 ) {
   const session = await auth();
   if (!session?.user?.id)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { siteId } = params;
+  const { siteId } = await params;
 
   const site = await prisma.site.findFirst({
     where: { siteId, userId: session.user.id },
@@ -47,13 +47,13 @@ export async function DELETE(
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { siteId: string } }
+  { params }: { params: Promise<{ siteId: string }> }
 ) {
   const session = await auth();
   if (!session?.user?.id)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { siteId } = params;
+  const { siteId } = await params;
   const body = await req.json();
   const { name, repoBranch, buildCommand, outputDir } = body;
 

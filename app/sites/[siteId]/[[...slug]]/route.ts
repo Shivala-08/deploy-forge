@@ -5,9 +5,9 @@ import { NextResponse } from "next/server";
 
 export async function GET(
   req: Request,
-  { params }: { params: { siteId: string; slug?: string[] } }
+  { params }: { params: Promise<{ siteId: string; slug?: string[] }> }
 ) {
-  const { siteId, slug = [] } = params;
+  const { siteId, slug = [] } = await params;
 
   // Build the file path based on the slug
   let filePath = slug.join("/");

@@ -12,17 +12,21 @@ export async function processNextInQueue() {
     },
   });
 
-  if (next) {
-    const callbackToken = randomBytes(32).toString("hex");
+  if (!next) return;
 
-    await prisma.deployQueue.update({
-      where: { id: next.id },
-      data: { status: "PROCESSING" },
-    });
+  const callbackToken = randomBytes(32).toString("hex");
 
-    await prisma.deployment.update({
-      where: { id: next.deploymentId },
-      data: { status: "BUILDING", callbackToken },
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.deployQueue.update({
+        where: { id: next.id },
+        data: { status: "PROCESSING" },
+      });
+
+      await tx.deployment.update({
+        where: { id: next.deploymentId },
+        data: { status: "BUILDING", callbackToken },
+      });
     });
 
     await triggerDeployWorkflow({
@@ -35,6 +39,18 @@ export async function processNextInQueue() {
       deploymentId: next.deploymentId,
       callbackUrl: `${process.env.NEXTAUTH_URL}/api/deploy/status`,
       callbackToken,
+    });
+  } catch (error) {
+    console.error("Failed to process queue:", error);
+    await prisma.$transaction(async (tx) => {
+      await tx.deployQueue.update({
+        where: { id: next.id },
+        data: { status: "WAITING" },
+      });
+      await tx.deployment.update({
+        where: { id: next.deploymentId },
+        data: { status: "QUEUED" },
+      });
     });
   }
 }

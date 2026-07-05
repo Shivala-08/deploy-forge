@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { use, useState } from "react";
 import useSWR from "swr";
 import { StatusBadge } from "@/components/dashboard/StatusBadge";
 import { Button } from "@/components/ui/button";
@@ -19,9 +19,9 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json());
 export default function SiteOverviewPage({
   params,
 }: {
-  params: { siteId: string };
+  params: Promise<{ siteId: string }>;
 }) {
-  const { siteId } = params;
+  const { siteId } = use(params);
   const router = useRouter();
   const { data: site, isLoading, mutate } = useSWR(
     `/api/projects/${siteId}`,

@@ -3,12 +3,12 @@ import { prisma } from "@/lib/prisma";
 import { detectFramework } from "@/lib/detectFramework";
 import { NextResponse } from "next/server";
 
-export async function GET(req: Request) {
+export async function GET(_req: Request) {
   const session = await auth();
   if (!session?.user?.id)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { searchParams } = new URL(req.url);
+  const { searchParams } = new URL(_req.url);
   const repoFullName = searchParams.get("repoFullName");
 
   if (!repoFullName) {

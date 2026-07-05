@@ -22,12 +22,20 @@ export function RepoSelector({ onSelect, selected }: RepoSelectorProps) {
     setError(null);
     fetch("/api/github/repos")
       .then(async (r) => {
-        const data = await r.json();
-        if (r.ok && Array.isArray(data)) {
-          setRepos(data);
-        } else {
+        if (!r.ok) {
+          const data = await r.json().catch(() => ({}));
           console.error("Failed to fetch repos:", data);
           setError(data?.error || "Failed to load repositories.");
+          setRepos([]);
+          setLoading(false);
+          return;
+        }
+        const data = await r.json();
+        if (Array.isArray(data)) {
+          setRepos(data);
+        } else {
+          console.error("Invalid repos response:", data);
+          setError("Invalid response from server.");
           setRepos([]);
         }
         setLoading(false);

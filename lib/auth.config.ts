@@ -2,6 +2,8 @@ import GitHub from "next-auth/providers/github";
 import type { NextAuthConfig } from "next-auth";
 
 export const authConfig = {
+  secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
+  trustHost: true,
   providers: [
     GitHub({
       clientId: process.env.GITHUB_CLIENT_ID!,
@@ -21,3 +23,4 @@ export const authConfig = {
     strategy: "jwt",
   },
 } satisfies NextAuthConfig;
+
