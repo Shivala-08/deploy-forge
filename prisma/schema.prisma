@@ -66,8 +66,8 @@ model DeployQueue {
   status       String   @default("WAITING") // "WAITING" | "PROCESSING" | "DONE"
   position     Int
   createdAt    DateTime @default(now())
-  site         Site     @relation(fields: [siteId], references: [id])
-  deployment   Deployment @relation(fields: [deploymentId], references: [id])
+  site         Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  deployment   Deployment @relation(fields: [deploymentId], references: [id], onDelete: Cascade)
 }
 
 // NextAuth

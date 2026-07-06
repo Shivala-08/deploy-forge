@@ -23,4 +23,6 @@ if (isVercel || isNonSqlite) {
   fs.writeFileSync(schemaPath, content, "utf-8");
 } else {
   console.log(`[patch-db-provider] Keeping sqlite provider (isVercel=${isVercel}, DATABASE_URL="${rawDbUrl.substring(0, 15)}...")`);
+  content = content.replace(/provider\s*=\s*"postgresql"/, 'provider = "sqlite"');
+  fs.writeFileSync(schemaPath, content, "utf-8");
 }
