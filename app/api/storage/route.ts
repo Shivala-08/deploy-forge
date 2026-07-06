@@ -24,4 +24,4 @@ export async function GET() {
     return apiError("Failed to fetch storage data", 500);
   }
 }
-}
+
