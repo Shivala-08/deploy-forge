@@ -28,6 +28,9 @@ jobs:
         with:
           node-version: "20"
 
+      - name: Install DeployForge dependencies
+        run: npm ci --only=prod || npm install --only=prod
+
       - name: Clone target repo
         run: |
           git clone \
