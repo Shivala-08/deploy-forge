@@ -181,7 +181,7 @@ jobs:
           CALLBACK_URL="${{ github.event.client_payload.callbackUrl }}"
           BASE_URL=$(echo "$CALLBACK_URL" | sed -E 's|/api/.*||')
           SITE_URL="${BASE_URL}/sites/${{ github.event.client_payload.siteId }}/"
-          MAX_WAIT=120
+          MAX_WAIT=300
           ELAPSED=0
           
           echo "Waiting for ${SITE_URL} to go live..."
