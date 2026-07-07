@@ -113,6 +113,43 @@ function rewriteCss(filePath, localFiles) {
   }
 }
 
+function rewriteJs(filePath, localFiles) {
+  try {
+    let content = fs.readFileSync(filePath, "utf-8");
+    let modified = false;
+    // Match string literals starting with / (e.g. "/images/...", "/assets/...")
+    content = content.replace(/(["'`])(\/[a-zA-Z0-9_\-\.\/]+)(\1)/g, (match, quote1, pathVal, quote2) => {
+      let shouldRewritePath = false;
+      
+      if (shouldRewrite(pathVal, localFiles)) {
+        shouldRewritePath = true;
+      } else {
+        // Directory prefix match: does any local file start with this path + "/"?
+        for (const file of localFiles) {
+          if (file.startsWith(pathVal + "/")) {
+            shouldRewritePath = true;
+            break;
+          }
+        }
+      }
+      
+      if (shouldRewritePath) {
+        modified = true;
+        console.log(`[rewrite-paths]   Rewriting JS path: ${pathVal} -> ${basePath}${pathVal}`);
+        return `${quote1}${basePath}${pathVal}${quote2}`;
+      }
+      return match;
+    });
+
+    if (modified) {
+      fs.writeFileSync(filePath, content);
+      console.log(`[rewrite-paths] ✓ ${filePath}`);
+    }
+  } catch (err) {
+    console.warn(`[rewrite-paths] ⚠ Skipped JS ${filePath}: ${err.message}`);
+  }
+}
+
 function walkAndRewrite(dir, localFiles) {
   if (dir.includes("node_modules") || dir.includes(".git")) return;
   if (!fs.existsSync(dir)) {
@@ -128,6 +165,8 @@ function walkAndRewrite(dir, localFiles) {
       rewriteHtml(full, localFiles);
     } else if (item.name.endsWith(".css")) {
       rewriteCss(full, localFiles);
+    } else if (item.name.endsWith(".js")) {
+      rewriteJs(full, localFiles);
     }
   }
 }
