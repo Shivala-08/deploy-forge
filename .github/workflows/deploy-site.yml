@@ -186,7 +186,7 @@ jobs:
           
           echo "Waiting for ${SITE_URL} to go live..."
           while [ $ELAPSED -lt $MAX_WAIT ]; do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$SITE_URL")
+            STATUS=$(curl -s -L -o /dev/null -w "%{http_code}" "$SITE_URL")
             if [ "$STATUS" = "200" ]; then
               echo "✓ Site is live (HTTP 200)"
               exit 0

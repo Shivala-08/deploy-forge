@@ -24,9 +24,8 @@ export async function POST(req: Request) {
         status,
         errorMessage: error ?? null,
         ...(runId ? { workflowRunId: String(runId) } : {}),
-        ...(status === "READY" || status === "ERROR" ? { completedAt: new Date() } : {}),
+        ...(status === "READY" || status === "ERROR" ? { completedAt: new Date(), callbackToken: null } : {}),
         meshSizeMb: meshSizeMb !== undefined ? meshSizeMb : undefined,
-        callbackToken: null, // Invalidate after use
       },
     });
 
